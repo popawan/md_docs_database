@@ -1,1 +1,175 @@
+name: module_pro
+version: "1.0"
+locale: zh-TW
+
+# 專拍（女主單拍）狀態欄位（由 router 初始化一次即可）
+state:
+  pro_stage: "idle"       # idle|angle|bg
+  chosen_angle: null      # 例如 'yaw -45' / 'pitch +45'
+  chosen_bg: null         # 文本地點
+  bg_opts: []             # 背景候選 A~E
+  busy: false
+
+steps:
+# 入口：啟用專拍（不進選單，讓使用者可直接 Q）
+- id: PRO_on
+  trigger: "on_text_matching: ^\\s*(拍照|幫你拍|女主拍)\\s*$"
+  when: "!$busy"
+  do:
+    set:
+      pro_stage: "idle"
+    say: |
+      {{ kb.phrases.ui.pro_on or "想幫我拍嗎？直接按『Q』先來一張～（或：按『1』角度、按『2』背景）" }}
+
+# 由總快門路由進來的出圖步驟（router 會 set busy:true 後 goto 到這）
+- id: PRO_shot
+  action:
+    type: image
+    operationId: system.compose
+    parameters:
+      seed: "{{ kb.rules.seed or random() }}"
+      subjects:
+        - reference: "{{ kb.identity.reference_image }}"
+          identity_lock: true
+          identity_strict_mode: true
+          gender: female
+          glasses_required: true
+      background_location:
+        prefer: "{{ chosen_bg }}"
+        # 先用聊天/語境推斷，失敗就從台灣池或你自訂 backgrounds 補
+        mode: infer_from_chat_then_pool
+        region_hint: Taiwan
+        require_match: true
+        fallback_pool: "{{ kb.backgrounds.pool or kb.rules.tw_pool }}"
+        randomize: true
+      composition:
+        output_size: "{{ kb.rules.output_size or '1024x1536' }}"
+        camera_prompt: "{{ (kb.rules.camera or '85mm') + (chosen_angle and ('; ' + chosen_angle + ' degrees') or '') }}"
+        selfie_style: true
+        no_extra_people: true
+        subject_crop: waist_up
+        remove_subject_background: true
+        use_source_background: false
+  on_success:
+    # 先解除 busy，避免 when: "!$busy" 擋住後續選單
+    set:
+      busy: false
+    # 第 1 張與後續都統一進角度選單（同時出 first_shot_hint）
+    goto: PRO_show_angle_menu
+  on_failure:
+    set:
+      busy: false
+    say: "{{ kb.phrases.errors.retry or '相機小當機💦 再按『Q』試一次。' }}"
+
+# —— 角度選單 —— #
+# 快捷：按 1 直接打開角度選單
+- id: PRO_angle_menu_quick
+  trigger: "on_text_matching: ^\\s*1\\s*$"
+  when: "!$busy"
+  do:
+    goto: PRO_show_angle_menu
+
+# 顯示角度選單（首張或之後都能呼叫）
+- id: PRO_show_angle_menu
+  action:
+    type: noop
+  on_enter:
+    set:
+      pro_stage: "angle"
+  say: |
+    {{ kb.phrases.ui.first_shot_hint or "拍好了📷 想微調：輸入『1』角度／『2』背景；隨時按『Q』快門。" }}
+
+    {{ kb.phrases.angles.menu_title or "角度選單（輸入 0～9；0 跳過）" }}
+    0. {{ kb.phrases.angles.labels["0"] or "跳過" }}
+    1. {{ kb.phrases.angles.labels["1"] or "左45°" }}
+    2. {{ kb.phrases.angles.labels["2"] or "左90°" }}
+    3. {{ kb.phrases.angles.labels["3"] or "左135°" }}
+    4. {{ kb.phrases.angles.labels["4"] or "背影" }}
+    5. {{ kb.phrases.angles.labels["5"] or "右45°" }}
+    6. {{ kb.phrases.angles.labels["6"] or "右90°" }}
+    7. {{ kb.phrases.angles.labels["7"] or "右135°" }}
+    8. {{ kb.phrases.angles.labels["8"] or "仰視" }}
+    9. {{ kb.phrases.angles.labels["9"] or "俯視" }}
+
+    👉 若要換背景：輸入「2」開單；隨時按『Q』快門。
+
+# 角度數字 0~9（僅在角度階段生效）
+- id: PRO_angle_pick
+  trigger: "on_text_matching: ^\\s*([0-9])\\s*$"
+  when: "!$busy && pro_stage == 'angle'"
+  do:
+    set:
+      chosen_angle: >-
+        {{ 
+          'null' if $1=='0' else
+          'yaw -45'  if $1=='1' else
+          'yaw -90'  if $1=='2' else
+          'yaw -135' if $1=='3' else
+          'yaw 180'  if $1=='4' else
+          'yaw 45'   if $1=='5' else
+          'yaw 90'   if $1=='6' else
+          'yaw 135'  if $1=='7' else
+          'pitch +45'if $1=='8' else
+          'pitch -45'
+        }}
+      pro_stage: "idle"
+    say: |
+      {{ '先跳過角度。' if $1=='0' else (kb.phrases.angles.ok or '角度OK。') }}
+      想換背景可輸入『2』；隨時按『Q』快門。
+
+# —— 背景選單 —— #
+# 快捷：按 2 直接打開背景選單
+- id: PRO_bg_menu_quick
+  trigger: "on_text_matching: ^\\s*2\\s*$"
+  when: "!$busy"
+  do:
+    set:
+      bg_opts: "{{ kb.rules.nearby_pool or sample(kb.backgrounds.pool or kb.rules.tw_pool, 5) }}"
+      pro_stage: "bg"
+    say: |
+      {{ kb.phrases.background.menu_title or "背景選單（輸入 A~E 或 0 跳過）" }}
+      0. {{ kb.phrases.background.skip or "跳過" }}
+      A. {{ bg_opts[0] if bg_opts and len(bg_opts)>0 else '台北101周邊' }}
+      B. {{ bg_opts[1] if bg_opts and len(bg_opts)>1 else '西門町紅樓' }}
+      C. {{ bg_opts[2] if bg_opts and len(bg_opts)>2 else '華山1914文創園區' }}
+      D. {{ bg_opts[3] if bg_opts and len(bg_opts)>3 else '松山文創園區' }}
+      E. {{ bg_opts[4] if bg_opts and len(bg_opts)>4 else '象山步道' }}
+
+# 傳統指令：輸入「背景」也能開選單
+- id: PRO_bg_menu_cmd
+  trigger: "on_text_matching: ^\\s*背景\\s*$"
+  when: "!$busy"
+  do:
+    set:
+      bg_opts: "{{ kb.rules.nearby_pool or sample(kb.backgrounds.pool or kb.rules.tw_pool, 5) }}"
+      pro_stage: "bg"
+    say: |
+      {{ kb.phrases.background.menu_title or "背景選單（輸入 A~E 或 0 跳過）" }}
+      0. {{ kb.phrases.background.skip or "跳過" }}
+      A. {{ bg_opts[0] if bg_opts and len(bg_opts)>0 else '台北101周邊' }}
+      B. {{ bg_opts[1] if bg_opts and len(bg_opts)>1 else '西門町紅樓' }}
+      C. {{ bg_opts[2] if bg_opts and len(bg_opts)>2 else '華山1914文創園區' }}
+      D. {{ bg_opts[3] if bg_opts and len(bg_opts)>3 else '松山文創園區' }}
+      E. {{ bg_opts[4] if bg_opts and len(bg_opts)>4 else '象山步道' }}
+
+# 背景：0 跳過（僅在背景階段生效）
+- id: PRO_bg_skip
+  trigger: "on_text_matching: ^\\s*0\\s*$"
+  when: "!$busy && pro_stage == 'bg'"
+  do:
+    set:
+      pro_stage: "idle"
+    say: "{{ kb.phrases.background.skip_ok or '先不換背景。準備好就按『Q』📷' }}"
+
+# 背景：A~E 選一個（僅在背景階段生效）
+- id: PRO_bg_pick
+  trigger: "on_text_matching: ^\\s*([A-Ea-e])\\s*$"
+  when: "!$busy && pro_stage == 'bg' && bg_opts && len(bg_opts)>=1"
+  do:
+    set:
+      chosen_bg: "{{ bg_opts[ (0 if $1 in ['A','a'] else 1 if $1 in ['B','b'] else 2 if $1 in ['C','c'] else 3 if $1 in ['D','d'] else 4) ] }}"
+      pro_stage: "idle"
+    say: |
+      {{ (kb.phrases.background.ok or '好～背景換成') + ' ' + chosen_bg + '。' }}
+      準備好就按『Q』拍📷
 
