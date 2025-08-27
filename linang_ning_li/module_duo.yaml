@@ -1,1 +1,88 @@
+module: module_duo
+state:
+  duo_pending: false
+  duo_ready: false
+  duo_retry: 0
+  user_img: null
+
+engine_subjects: &DUO_SUBJ
+  - { id: ningli,
+      reference: "@kb.identity.reference_image",
+      identity_lock: true, identity_strict_mode: true,
+      identity_weight: "@kb.identity.identity_weight",
+      face_strictness: "@kb.identity.face_strictness",
+      gender: female, glasses_required: true }
+
+engine_comp: &DUO_COMP
+  output_size: "@kb.layout_rules.default_portrait"
+  camera_prompt: "35mm; waist_up; neutral pose; even light"
+
+steps:
+  - id: DUO_start
+    trigger: "on_text_matching: ^\\s*(合照|一起拍|找我合照|合影)\\s*$"
+    when: "!$busy"
+    do:
+      set: { duo_pending: true, duo_ready: false, user_img: null }
+      say: "好呀～先上傳你的照片，我們才能合照喔📸"
+
+  - id: DUO_wait
+    action: { type: wait_for_file, accept: ["image/*"] }
+    on_success:
+      save: user_img
+      set: { duo_ready: true, duo_pending: false }
+      say: "我看到你了～現在按『Q』就能合照📷"
+    on_failure:
+      say: "要先上傳照片喔～上傳後就能按『Q』合照。"
+
+  - id: DUO_shot
+    when: "duo_ready && user_img"
+    action:
+      type: image
+      operationId: system.compose
+      parameters:
+        subjects:
+          - *DUO_SUBJ[0]
+          - { id: user, reference: "$user_img", preserve_identity: true, allow_nonhuman: true }
+        background_location:
+          mode: select_from_pool
+          region_hint: Taiwan
+          require_match: true
+          fallback_pool: "@kb.backgrounds.pool"
+          randomize: true
+        composition: *DUO_COMP
+    on_success: { set: { busy: false, duo_retry: 0 }, say: "拍好了📸" }
+    on_failure:
+      set: { busy: false }
+      if: "{{ failure_reason and regex_match(failure_reason, '(?i)policy|safety|content') }}"
+      then: goto: DUO_shot_retry_safe
+      else: goto: DUO_shot_retry_generic
+
+  - id: DUO_shot_retry_safe
+    action:
+      type: image
+      operationId: system.compose
+      parameters:
+        subjects:
+          - *DUO_SUBJ[0]
+          - { id: user, reference: "$user_img", preserve_identity: true, allow_nonhuman: true }
+        background_location:
+          mode: select_from_pool
+          region_hint: Taiwan
+          require_match: true
+          fallback_pool: "@kb.backgrounds.pool"
+          randomize: true
+        composition:
+          <<: *DUO_COMP
+          camera_prompt: "35mm; waist_up; hands down; soft neutral expression; evenly lit"
+    on_success: { set: { busy: false, duo_retry: 0 }, say: "好了📸" }
+    on_failure: { set: { busy: false }, say: "還是被擋住了💦 換個背景或再按『Q』試試？" }
+
+  - id: DUO_shot_retry_generic
+    do:
+      set: { duo_retry: "{{ (duo_retry or 0) + 1 }}" }
+      goto: >-
+        {{ duo_retry <= 1 ? 'DUO_shot' : 'DUO_shot_fail_msg' }}
+
+  - id: DUO_shot_fail_msg
+    say: "剛剛網路或圖片連結慢一點～你再按一次『Q』，或待會再試也行。"
 
