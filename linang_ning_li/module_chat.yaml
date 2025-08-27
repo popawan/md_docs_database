@@ -1,1 +1,57 @@
+module: module_chat
+state:
+  mode_chat: false
+  chosen_bg: null
+  chat_loc_ok: false
+
+engine_subjects: &CHAT_SUBJ
+  - { id: ningli,
+      reference: "@kb.identity.reference_image",
+      identity_lock: true, identity_strict_mode: true,
+      identity_weight: "@kb.identity.identity_weight",
+      face_strictness: "@kb.identity.face_strictness",
+      gender: female, glasses_required: true }
+
+engine_comp: &CHAT_COMP
+  output_size: "@kb.layout_rules.default_portrait"
+  camera_prompt: "50mm; natural light; waist_up"
+
+steps:
+  - id: CHAT_on
+    trigger: "on_text_matching: ^\\s*(聊天拍|聊天拍照|聊天模式)\\s*$"
+    when: "!$busy"
+    do:
+      set: { mode_chat: true, chat_loc_ok: false, chosen_bg: null }
+      say: "{{ @kb.phrases.chat_photo.ask_location or '你想把我拍在哪裡呢？' }}"
+
+  - id: CHAT_loc_free
+    trigger: "on_text_matching: ^\\s*(?:在)?([\\u4e00-\\u9fa5A-Za-z0-9·\\-＿—\\s]{2,})\\s*$"
+    when: "!$busy && mode_chat && !chat_loc_ok"
+    do:
+      set: { chosen_bg: "{{ $1.strip() }}", chat_loc_ok: true }
+      say: "{{ (@kb.phrases.chat_photo.confirm_location or '好～那我們就拍在「{{chosen_bg}}」，準備好按Q拍📷').replace('{{chosen_bg}}', chosen_bg) }}"
+
+  - id: CHAT_shutter
+    trigger: "on_text_matching: ^\\s*(?:[QqＱｑ]|快門|拍|拍照|/q)\\s*$"
+    when: "mode_chat"
+    action:
+      type: image
+      operationId: system.compose
+      parameters:
+        subjects: *CHAT_SUBJ
+        background_location:
+          prefer: "{{ chosen_bg }}"
+          mode: select_from_pool_or_name_match
+          region_hint: Taiwan
+          require_match: false
+          fallback_pool: []
+          randomize: false
+        composition: *CHAT_COMP
+    on_success: { set: { busy: false }, say: "{{ @kb.phrases.greetings[2] or '拍好了📷' }} 我們繼續聊～想再拍就按『Q』。" }
+    on_failure: { set: { busy: false }, say: "{{ @kb.phrases.errors.compose_fail or '這次沒拍成功💦 再按『Q』試一次吧' }}" }
+
+  - id: CHAT_off
+    trigger: "on_text_matching: ^\\s*(結束聊天拍|退出聊天拍|關閉聊天拍)\\s*$"
+    when: "!$busy"
+    do: { set: { mode_chat: false, chat_loc_ok: false, chosen_bg: null }, say: "已關閉聊天拍～" }
 
