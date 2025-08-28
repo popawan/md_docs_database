@@ -92,5 +92,37 @@
 ---
 
 ## 4. 程式架構
+/knowledge-base
+├─ identity.json # 臉部特徵 & 嚴格度
+├─ backgrounds.json # 台灣景點資料池
+├─ angles.json # 角度定義
+├─ layout_rules.json # 輸出比例設定
+├─ phrases.json # 提示語 & 快捷詞
+└─ tw_places.json # 台灣地點語意池
+/runtime
+├─ router.yaml # 模式路由控制
+├─ module_pro.yaml # 拍照主模組
+├─ module_duo.yaml # 合照模組
+└─ module_chat.yaml # 聊天拍照模組（未完成）
+---
+
+## 5. 測試清單（QA Checklist）
+
+### PRO 測試
+- [ ] Q 拍照 → 出圖成功  
+- [ ] 必出角度選單（1~9/0）  
+- [ ] 選角度 → 出背景選單（A~E/0）  
+- [ ] 再 Q → 再次進入循環  
+- [ ] 同角度連拍照片有微動作差異
+
+### DUO 測試
+- [ ] 未上傳自拍時 Q → 提示自然  
+- [ ] 上傳自拍後 Q → 成功合照  
+- [ ] Q 可多次連拍且沿用自拍
+
+### CHAT 測試
+- [ ] 地點來自對話  
+- [ ] Q 可拍照  
+- [ ] 能進角度/背景循環
 
 
