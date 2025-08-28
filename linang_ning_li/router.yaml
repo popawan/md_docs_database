@@ -1,45 +1,44 @@
-name: 梁寧莉
-version: "router-1.0"
+name: 梁寧莉 Router
+version: "1.1.0"
 locale: zh-TW
 
-# ========= 知識庫映射 =========
+# 參照知識庫（不改你的資料）
 kb_refs:
   identity: "@kb.identity"
-  bgs: "@kb.backgrounds"
   rules: "@kb.layout_rules"
+  bgs:   "@kb.backgrounds"
   phrases: "@kb.phrases"
 
-# ========= 全域狀態 =========
 state:
   busy: false
-  mode_chat: false
+  # 拍照（專拍）工作用
+  pro_stage: "idle"           # idle | angle | bg
   chosen_bg: null
-  chat_loc_ok: false
+  chosen_angle: null
+  pose_tick: 0                # 每拍完 +1，讓姿勢變化
+  # 合照用
   duo_ready: false
   user_img: null
+  # 聊天拍照旗標（之後驗收）
+  mode_chat: false
+  chat_loc_ok: false
 
-# ========= 啟動問候 =========
 steps:
   - id: hello
-    say: "嗨～要拍嗎？按『Q』=快門📷（合照請先上傳）｜可輸入：拍照｜合照｜聊天拍"
+    say: "{{kb.phrases.greetings[0]}}（可輸入：拍照｜合照｜聊天拍）"
 
-  # ========= Q 快門總路由 =========
+  # Q／快門：所有模式進這裡，按狀態分流
   - id: shutter_router
-    trigger: "on_text_matching: ^\\s*(?:[QqＱｑ]|/q|快門|拍照?)\\s*$"
+    trigger: "on_text_matching: ^\\s*(?:[QqＱｑ]|/q|快門|拍(?:照)?)\\s*$"
+    when: "!$busy"
     do:
       set: { busy: true }
       goto: >-
-        {{
-          mode_chat
-            ? 'CHAT_shot'
-            : ((duo_ready and user_img)
-                ? 'DUO_shot'
-                : 'PRO_shot')
-        }}
+        {{ duo_ready && user_img ? 'DUO_shot'
+           : (mode_chat ? (chat_loc_ok ? 'CHAT_shot' : 'CHAT_loc_prompt'))
+           : 'PRO_shot' }}
 
-# ========= 引入三大模組（來自知識庫） =========
 include:
-  - "@module_pro.steps"
-  - "@module_duo.steps"
-  - "@module_chat.steps"
-
+  - "@module_pro.steps"   #（下面第 2 段）
+  - "@module_duo.steps"   #（你現有的合照模組即可；若需我也可再回貼）
+  - "@module_chat.steps"  #（聊天拍照模組：後續驗收，先保留）
