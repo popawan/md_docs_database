@@ -1,112 +1,116 @@
-# ===== module_pro.yaml =====
-name: "pro-shoot"
+name: module_pro
+version: "3.6.0"
 locale: zh-TW
-exports:
-  steps: &module_pro.steps
-    # 共享：主角與鏡頭
-    - id: PRO_bootstrap
-      action: {type: noop}
-      on_enter:
-        set:
-          pro_busy: false             # 本模組內部忙碌旗標（避免重入）
-          pro_stage: "idle"           # idle|angle|bg
-          chosen_angle: null          # 'yaw -45' / 'pitch +45' ...
-          chosen_bg: null
-      say: ""
 
-    # 快門：router 會把 Q 導到這
-    - id: PRO_shot
-      when: "!$pro_busy"
-      action:
-        type: image
-        operationId: system.compose
-        parameters:
-          seed: "{{ random() }}"
-          subjects:
-            - { id: ningli, reference: "@kb.identity.reference_image",
-                identity_lock: true, identity_strict_mode: true,
-                identity_weight: 1.8, face_strictness: 0.99,
-                gender: female, glasses_required: true }
-          background_location:
-            # 若先前已選，就尊重；否則讓系統從聊天/規則推斷，再失敗才落到池
-            prefer: "{{ chosen_bg }}"
-            mode: infer_from_chat_then_pool
-            region_hint: Taiwan
-            require_match: true
-            fallback_pool: "@kb.backgrounds.pool"
-            randomize: true
-          composition:
-            output_size: "@kb.rules.output_size"
-            camera_prompt: >-
-              {{ random(@kb.rules.ca) }}{{ chosen_angle ? ('; ' + chosen_angle + ' degrees') : '' }}
-      on_start:
-        set: { pro_busy: true }
-      on_success:
-        set:
-          pro_busy: false
-          # 每次出圖後，強制進入角度→背景問答
-          pro_stage: "angle"
-        say: "拍好了📷 想微調我們再拍一張～\n\n角度選單（輸入 0~9）：\n1左45°／2左90°／3左135°／4背影／5右45°／6右90°／7右135°／8仰視／9俯視。\n（先選角度；任何時候按『Q』就是快門）"
-      on_failure:
-        set: { pro_busy: false }
-        say: "相機小當機💦 再按『Q』一次。"
+steps:
+  # 進入專拍
+  - id: PRO_on
+    trigger: "on_text_matching: ^\\s*(拍照|女主拍|幫你拍)\\s*$"
+    when: "!$busy"
+    do:
+      set: { pro_stage: "idle" }
+      say: "想幫我拍嗎？按『Q』先來一張📷（或：『1』角度｜『2』背景）"
 
-    # 角度選單（只在 pro_stage=angle 時有效）
-    - id: PRO_angle_pick
-      trigger: "on_text_matching: ^\\s*([0-9])\\s*$"
-      when: "pro_stage == 'angle'"
-      do:
-        set:
-          chosen_angle: >-
-            {{ chosen_angle if $1=='0' else
-              ('yaw -45'  if $1=='1' else
-               'yaw -90'  if $1=='2' else
-               'yaw -135' if $1=='3' else
-               'yaw 180'  if $1=='4' else
-               'yaw 45'   if $1=='5' else
-               'yaw 90'   if $1=='6' else
-               'yaw 135'  if $1=='7' else
-               'pitch +45'if $1=='8' else
-               'pitch -45') }}
-          pro_stage: "bg"
-      say: "{{ '角度跳過。' if $1=='0' else '角度 OK。' }}\n\n接著選背景（輸入 A~E 或 0 跳過）：\n{{ bg_menu_text }}"
-      on_enter:
-        set:
-          bg_opts: "{{ nearby(@kb.backgrounds.pool, inferred_location, 5) or sample(@kb.backgrounds.pool, 5) }}"
-          bg_menu_text: "A{{bg_opts[0]}}／B{{bg_opts[1]}}／C{{bg_opts[2]}}／D{{bg_opts[3]}}／E{{bg_opts[4]}}"
+  # 快門 → 統一走這裡（每次都會做！）
+  - id: PRO_shot
+    action:
+      type: image
+      operationId: system.compose
+      parameters:
+        seed: "{{ (now().epochSeconds + pose_tick)|int }}"   # 讓每張都變化
+        subjects:
+          - { id: ningli, reference: "@kb.identity.reference_image",
+              identity_lock: true, identity_strict_mode: true,
+              identity_weight: 1.8, face_strictness: 0.99, gender: female,
+              glasses_required: true }
+        background_location:
+          prefer: "{{ chosen_bg }}"
+          mode: "infer_from_chat_then_pool"
+          region_hint: "Taiwan"
+          require_match: true
+          fallback_pool: "@kb.backgrounds.pool"
+          randomize: true
+        composition:
+          output_size: "@kb.rules.output_size"
+          # 角度 + 姿勢：角度固定、姿勢來源為 pose_tick 帶來的 seed 變化
+          camera_prompt: >-
+            {{ chosen_angle ? ('yaw/pitch: ' + chosen_angle) : '' }};
+            portrait; candid; natural gestures; subtle hand/shoulder variation;
+            micro-expression change; slight body reorientation;
+            keep identity locked; no extra people
+    on_success:
+      set:
+        busy: false
+        pose_tick: "{{ pose_tick + 1 }}"
+        pro_stage: "angle"          # ✅ 每次拍完強制進「角度選單」
+      say: "拍好了📷 來微調一下～先選角度（輸入 1-9；0=跳過），隨時也能『Q』快門。"
+    on_failure:
+      set: { busy: false }
+      say: "小當機💦 再按『Q』一次吧。"
 
-    # 背景跳過（只在 pro_stage=bg）
-    - id: PRO_bg_skip
-      trigger: "on_text_matching: ^\\s*0\\s*$"
-      when: "pro_stage == 'bg'"
-      do:
-        set: { pro_stage: "idle" }
-      say: "背景先不換。準備好就按『Q』📷"
+  # ============ 角度 ============
+  - id: PRO_angle_quick
+    trigger: "on_text_matching: ^\\s*1\\s*$"
+    when: "!$busy && pro_stage != 'angle'"
+    do:
+      set: { pro_stage: "angle" }
+      say: "角度選單：1左45°｜2左90°｜3左135°｜4背影｜5右45°｜6右90°｜7右135°｜8仰視｜9俯視（0=跳過）"
 
-    # 背景選單（A~E，只在 pro_stage=bg）
-    - id: PRO_bg_pick
-      trigger: "on_text_matching: ^\\s*([A-Ea-e])\\s*$"
-      when: "pro_stage == 'bg' && bg_opts && len(bg_opts)>=5"
-      do:
-        set:
-          chosen_bg: "{{ bg_opts[(0 if $1 in ['A','a'] else 1 if $1 in ['B','b'] else 2 if $1 in ['C','c'] else 3 if $1 in ['D','d'] else 4)] }}"
-          pro_stage: "idle"
-      say: "好～換到「{{ chosen_bg }}」。隨時按『Q』就是快門📷"
+  - id: PRO_angle_menu
+    trigger: "on_text_matching: ^\\s*角度(?:選單)?\\s*$"
+    when: "!$busy"
+    do:
+      set: { pro_stage: "angle" }
+      say: "角度選單：1左45°｜2左90°｜3左135°｜4背影｜5右45°｜6右90°｜7右135°｜8仰視｜9俯視（0=跳過）"
 
-    # 輔助開單點選單（可選，僅當使用者主動輸入 1 或 2）
-    - id: PRO_open_angle_menu
-      trigger: "on_text_matching: ^\\s*1\\s*$"
-      when: "pro_stage == 'idle'"
-      do:
-        set: { pro_stage: "angle" }
-      say: "角度選單（輸入 0~9）：\n1左45°／2左90°／3左135°／4背影／5右45°／6右90°／7右135°／8仰視／9俯視。"
+  - id: PRO_angle_pick
+    trigger: "on_text_matching: ^\\s*([0-9])\\s*$"
+    when: "!$busy && pro_stage == 'angle'"
+    do:
+      set:
+        chosen_angle: >-
+          {{ 'yaw -45'  if $1=='1' else
+             'yaw -90'  if $1=='2' else
+             'yaw -135' if $1=='3' else
+             'yaw 180'  if $1=='4' else
+             'yaw 45'   if $1=='5' else
+             'yaw 90'   if $1=='6' else
+             'yaw 135'  if $1=='7' else
+             'pitch +45'if $1=='8' else
+             'pitch -45' if $1=='9' else chosen_angle }}
+        pro_stage: "bg"
+      say: "{{ '角度跳過。' if $1=='0' else '角度OK。' }} 接著選背景：輸入 A~E（0=跳過）。"
 
-    - id: PRO_open_bg_menu
-      trigger: "on_text_matching: ^\\s*2\\s*$"
-      when: "pro_stage == 'idle'"
-      do:
-        set:
-          pro_stage: "bg"
-          bg_opts: "{{ nearby(@kb.backgrounds.pool, inferred_location, 5) or sample(@kb.backgrounds.pool, 5) }}"
-          bg_menu_text: "A{{bg_opts[0]}}／B{{bg_opts[1]}}／C{{bg_opts[2]}}／D{{bg_opts[3]}}／E{{bg_opts[4]}}"
-      say: "背景選單（輸入 A~E 或 0 跳過）：\n{{ bg_menu_text }}"
+  # ============ 背景 ============
+  - id: PRO_bg_quick
+    trigger: "on_text_matching: ^\\s*2\\s*$"
+    when: "!$busy && pro_stage != 'bg'"
+    do:
+      set:
+        bg_opts: "{{ nearby(@kb.backgrounds.pool, inferred_location, 5) or sample(@kb.backgrounds.pool, 5) }}"
+        pro_stage: "bg"
+      say: "背景選單：A{{bg_opts[0]}}｜B{{bg_opts[1]}}｜C{{bg_opts[2]}}｜D{{bg_opts[3]}}｜E{{bg_opts[4]}}（0=跳過）"
+
+  - id: PRO_bg_menu
+    trigger: "on_text_matching: ^\\s*背景(?:選單)?\\s*$"
+    when: "!$busy"
+    do:
+      set:
+        bg_opts: "{{ nearby(@kb.backgrounds.pool, inferred_location, 5) or sample(@kb.backgrounds.pool, 5) }}"
+        pro_stage: "bg"
+      say: "背景選單：A{{bg_opts[0]}}｜B{{bg_opts[1]}}｜C{{bg_opts[2]}}｜D{{bg_opts[3]}}｜E{{bg_opts[4]}}（0=跳過）"
+
+  - id: PRO_bg_pick
+    trigger: "on_text_matching: ^\\s*([A-Ea-e0])\\s*$"
+    when: "!$busy && pro_stage == 'bg'"
+    do:
+      set:
+        chosen_bg: >-
+          {{ null if $1 in ['0'] else
+             bg_opts[0] if $1 in ['A','a'] else
+             bg_opts[1] if $1 in ['B','b'] else
+             bg_opts[2] if $1 in ['C','c'] else
+             bg_opts[3] if $1 in ['D','d'] else
+             bg_opts[4] }}
+        pro_stage: "idle"
+      say: "{{ '背景先跳過。' if $1=='0' else ('背景改成『' + chosen_bg + '』。') }} 準備好就按『Q』📷"
