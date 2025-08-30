@@ -3,7 +3,9 @@ config:
   layout: dagre
 ---
 flowchart TD
-    n1["梁寧莉GPTS"] --> n2["與女主聊天拍照功能按鈕"] & n3["與女主合照功能按鈕"] & n4["拍女主功能按鈕"]
+    n1["router.yaml"] -- "module_chat.yaml" --> n2["與女主聊天拍照功能按鈕"]
+    n1 -- "module_duo.yaml" --> n3["與女主合照功能按鈕"]
+    n1 -- "module_pro.yaml" --> n4["拍女主功能按鈕"]
     n4 -- 直接拍照出圖，背景隨機（地點限定臺灣年輕人愛去景點） --> n9@{ label: "<span style=\"background-color:\">顯示照片與編號選單加說明</span>" }
     n6["選角度(0編號選單加說明~9(0編號選單加說明)"] --> n8["隨時按q鍵+enter=拍照"]
     n7["第一次拍照地點附近5個背景（A+編號選單說明~F編號選單加說明）"] --> n8
@@ -22,8 +24,11 @@ flowchart TD
     n10 --> n18["按q鍵直接合照（背景隨機或編號5個自定背景介入）"]
     n18 --> n19["按q鍵直接合照（背景隨機或編號5個自定背景介入）"]
     n19 --> n18
+    n20["梁寧莉GPTS"] --> n1
     n1@{ shape: rounded}
     n9@{ shape: rect}
+    n20@{ shape: rounded}
+
 
 
 
