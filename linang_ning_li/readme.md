@@ -848,6 +848,91 @@ work_log_path = Path("/mnt/data/work_log.md")
 work_log_path.write_text(work_log_content, encoding="utf-8")
 work_log_path
 
-    
+目前狀況總結
+
+三大模組
+
+module_chat.yaml：聊天＋隨時拍女主
+
+module_duo.yaml：合照
+
+module_pro.yaml：拍女主
+
+Router 角色
+
+主要用來欺騙 gpt-image-1，以為是 API 回傳，才能固定女主臉。
+
+如果拿掉 router，女主會亂變臉或變男生。
+
+主要問題
+
+文案問題
+
+有些「選擇題」文案不能亂改（例如角度、背景選單），這部分需要完全固定。
+
+其他自由文案可以腦補，像 20 歲女生的語氣。
+
+角度 135° 提示詞
+
+左135°、右135° 要加 eyes looking away，不然會臉回頭。
+
+編號一致性
+
+角度、背景選單 一定要帶編號，不然使用者體驗會崩。
+
+附近背景範圍
+
+目前會隨機抓全台，但九份旁邊出現台南很怪，需要限制在同縣市或距離範圍內。
+
+提示詞問題
+
+gpt-image-1 會自行腦補，需要 router 讓它「誤會」是 API 控制，才能穩定。
+
+建議方案
+A. 保留 router，不動主結構
+
+因為 router 是讓 gpt-image-1「穩定吃 prompt」的核心，這個不能拆。
+
+module_chat.yaml、module_duo.yaml、module_pro.yaml 都維持現狀。
+
+B. 三個小修正
+
+文案分離
+
+把「固定選擇題」文案鎖定在 phrases.json
+
+例如：
+
+{
+  "angles_menu": "角度選單：0 跳過｜1 左45°｜2 左90°｜3 左135°｜4 曝影｜5 右45°｜6 右90°｜7 右135°｜8 仰視｜9 俯視",
+  "backgrounds_menu": "背景選單：A 九份老街｜B 淡水漁人碼頭｜C 華山1914文創園區｜D 台南神農街｜E 高雄駁二"
+}
+
+
+phrases.json 不會被亂動，GPT 直接讀這裡。
+
+角度提示詞修正
+
+左135°：eyes looking away, facing left
+
+右135°：eyes looking away, facing right
+
+這會寫在 angles.json，完全鎖死。
+
+附近背景優化
+
+我們在 tw_places.json 裡加上「區域群組」，
+例如九份附近只會出現瑞芳、平溪、基隆，而不會跳到高雄。
+
+明天工作重點
+
+我先幫你做 phrases.json、angles.json、tw_places.json 的優化版本。
+
+再更新 module_pro.yaml，只改提示詞，不動流程。
+
+保留 router，確保 gpt-image-1 繼續乖乖吃 prompt。
+
+我建議先從 phrases.json 固定選單文案開始，這樣今天就能先鎖死最容易出錯的地方。
+你想先讓我做這個嗎？    
 
 out
