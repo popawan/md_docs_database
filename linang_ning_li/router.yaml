@@ -1,44 +1,15 @@
-name: 梁寧莉 Router
-version: "1.1.0"
-locale: zh-TW
 
-# 參照知識庫（不改你的資料）
-kb_refs:
-  identity: "@kb.identity"
-  rules: "@kb.layout_rules"
-  bgs:   "@kb.backgrounds"
-  phrases: "@kb.phrases"
+name: router
+description: 主路由器，負責導向各模組
 
-state:
-  busy: false
-  # 拍照（專拍）工作用
-  pro_stage: "idle"           # idle | angle | bg
-  chosen_bg: null
-  chosen_angle: null
-  pose_tick: 0                # 每拍完 +1，讓姿勢變化
-  # 合照用
-  duo_ready: false
-  user_img: null
-  # 聊天拍照旗標（之後驗收）
-  mode_chat: false
-  chat_loc_ok: false
+buttons:
+  - label: "與女主聊天拍女主"
+    target: module_chat
+  - label: "合照"
+    target: module_duo
+  - label: "幫女主拍照"
+    target: module_pro_new
 
-steps:
-  - id: hello
-    say: "{{kb.phrases.greetings[0]}}（可輸入：拍照｜合照｜聊天拍）"
-
-  # Q／快門：所有模式進這裡，按狀態分流
-  - id: shutter_router
-    trigger: "on_text_matching: ^\\s*(?:[QqＱｑ]|/q|快門|拍(?:照)?)\\s*$"
-    when: "!$busy"
-    do:
-      set: { busy: true }
-      goto: >-
-        {{ duo_ready && user_img ? 'DUO_shot'
-           : (mode_chat ? (chat_loc_ok ? 'CHAT_shot' : 'CHAT_loc_prompt'))
-           : 'PRO_shot' }}
-
-include:
-  - "@module_pro.steps"   #（下面第 2 段）
-  - "@module_duo.steps"   #（你現有的合照模組即可；若需我也可再回貼）
-  - "@module_chat.steps"  #（聊天拍照模組：後續驗收，先保留）
+# 以下為原本拍照模組，已保留註解方便回溯
+# - label: "舊版拍照"
+#   target: module_pro
