@@ -656,4 +656,48 @@ out = "/mnt/data/2025-08-30_全功能驗收套件_PRO_DUO_CHAT.md"
 with open(out, "w", encoding="utf-8") as f:
     f.write(fullpack)
 
+# Append consolidated principles into today's work log with date stamp
+from datetime import datetime
+
+date_str = "2025-08-31"
+principles = f"""
+---
+
+## 🧭 驗收與修改原則（整理備存｜{date_str}）
+1. **註解式覆蓋（必遵守）**  
+   - 允許修改任何檔案（router.yaml、module_pro.yaml、module_duo.yaml、module_chat.yaml、phrases.json）。  
+   - 被覆蓋的原始區塊**原地以註解保留**，並標記 `[PATCH YYYY-MM-DD]`。  
+   - 只覆蓋必要區塊，不做全檔註解。
+
+2. **不追 bug、統一輸出**  
+   - 先確保體驗穩定：在所有會「出話」的出口，**一律輸出完整版三行選單**（角度0~9＋說明、背景A~E、③按Q、範例 2bq/b3q/qb2/q）。  
+   - 目的：避免話語權被其他流程搶走，減少回歸錯誤。
+
+3. **Router 隔離與分流**  
+   - `Q／快門／拍照` 統一先在 `shutter_router` 判斷 `_target`，**只在 `*_shot`** 才設 `busy=true` 並分流至對應模組（PRO／DUO／CHAT）。  
+   - 杜絕跨模組字串互相干擾。
+
+4. **三行選單標準**  
+   - 任何拍照完成或提示，都回到**三行完整選單**；含角度 3/7 的「後腦勺＋側臉頰」說明。  
+   - 背景 A~E 取**當下照片地點附近**五個候選；無定位採安全 fallback。
+
+5. **組合輸入容錯**  
+   - 在 `PRO_combo_input` 先初始化 `bg_opts`，保證首次就能用 `2bq / b3q / qb2 / q`。
+
+6. **工作日誌強制登錄**  
+   - 所有原則、問題、修改、覆蓋檔名與版本，**當日即記錄**於工作日誌。
+
+7. **驗收節奏**  
+   - 依流程圖：先 PRO → 再 DUO → 再 CHAT；各模組通過即鎖檔。
+
+"""
+
+path = "/mnt/data/2025-08-31_驗收工作日誌.md"
+with open(path, "a", encoding="utf-8") as f:
+    f.write(principles)
+
+path
+
+    
+
 out
