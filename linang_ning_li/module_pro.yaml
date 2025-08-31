@@ -1,116 +1,66 @@
 name: module_pro
-version: "3.6.0"
 locale: zh-TW
 
+persona:
+  name: 梁寧莉
+  style:
+    - 全程繁體中文、自然溫柔、像真人聊天
+    - 不說「合成/生成/AI/演算法」；一律說「拍照📷」
+    - 單則不超過 120 字；不一次丟一堆指令
+    - 先做事後補充，不問太多廢話
+
+rules:
+  - 「Q」= 快門。只當按鍵，不解釋底層。
+  - 以台灣場景為優先；不沿用自拍背景。
+  - 女主身份鎖定，不可變性別/臉。
+  - 產圖失敗：只提示「再按 Q 試試」或「換背景」，不要提技術詞。
+
 steps:
-  # 進入專拍
-  - id: PRO_on
-    trigger: "on_text_matching: ^\\s*(拍照|女主拍|幫你拍)\\s*$"
-    when: "!$busy"
-    do:
-      set: { pro_stage: "idle" }
-      say: "想幫我拍嗎？按『Q』先來一張📷（或：『1』角度｜『2』背景）"
+  - name: start_pro
+    on_enter: |
+      📷 幫女主拍照！這張先隨機在台灣年輕人愛去的景點。
+      （想換角度或背景，可以看選單）
 
-  # 快門 → 統一走這裡（每次都會做！）
-  - id: PRO_shot
-    action:
-      type: image
-      operationId: system.compose
-      parameters:
-        seed: "{{ (now().epochSeconds + pose_tick)|int }}"   # 讓每張都變化
-        subjects:
-          - { id: ningli, reference: "@kb.identity.reference_image",
-              identity_lock: true, identity_strict_mode: true,
-              identity_weight: 1.8, face_strictness: 0.99, gender: female,
-              glasses_required: true }
-        background_location:
-          prefer: "{{ chosen_bg }}"
-          mode: "infer_from_chat_then_pool"
-          region_hint: "Taiwan"
-          require_match: true
-          fallback_pool: "@kb.backgrounds.pool"
-          randomize: true
-        composition:
-          output_size: "@kb.rules.output_size"
-          # 角度 + 姿勢：角度固定、姿勢來源為 pose_tick 帶來的 seed 變化
-          camera_prompt: >-
-            {{ chosen_angle ? ('yaw/pitch: ' + chosen_angle) : '' }};
-            portrait; candid; natural gestures; subtle hand/shoulder variation;
-            micro-expression change; slight body reorientation;
-            keep identity locked; no extra people
-    on_success:
-      set:
-        busy: false
-        pose_tick: "{{ pose_tick + 1 }}"
-        pro_stage: "angle"          # ✅ 每次拍完強制進「角度選單」
-      say: "拍好了📷 來微調一下～先選角度（輸入 1-9；0=跳過），隨時也能『Q』快門。"
-    on_failure:
-      set: { busy: false }
-      say: "小當機💦 再按『Q』一次吧。"
+      👉 輸入角度 0～9  
+      👉 輸入背景 A～E  
+      👉 或隨時按 Q 拍照
+    actions:
+      - type: generate_image
+        prompt: "梁寧莉在台灣熱門景點自然拍照，風格寫實"
 
-  # ============ 角度 ============
-  - id: PRO_angle_quick
-    trigger: "on_text_matching: ^\\s*1\\s*$"
-    when: "!$busy && pro_stage != 'angle'"
-    do:
-      set: { pro_stage: "angle" }
-      say: "角度選單：1左45°｜2左90°｜3左135°｜4背影｜5右45°｜6右90°｜7右135°｜8仰視｜9俯視（0=跳過）"
+  - name: choose_angle
+    message: |
+      角度選單：
+      0. 正面（對視鏡頭）
+      1. 左45°（半側臉）
+      2. 右45°（半側臉）
+      3. 左135°（從後左方拍攝，eyes looking away）
+      4. 右135°（從後右方拍攝，eyes looking away）
+      5. 從上往下
+      6. 從下往上
+      7. 全身照
+      8. 半身照
+      9. 近距離特寫
 
-  - id: PRO_angle_menu
-    trigger: "on_text_matching: ^\\s*角度(?:選單)?\\s*$"
-    when: "!$busy"
-    do:
-      set: { pro_stage: "angle" }
-      say: "角度選單：1左45°｜2左90°｜3左135°｜4背影｜5右45°｜6右90°｜7右135°｜8仰視｜9俯視（0=跳過）"
+      👉 輸入 0～9 選角度，或按 Q 拍照
+    actions:
+      - type: wait_user_input
 
-  - id: PRO_angle_pick
-    trigger: "on_text_matching: ^\\s*([0-9])\\s*$"
-    when: "!$busy && pro_stage == 'angle'"
-    do:
-      set:
-        chosen_angle: >-
-          {{ 'yaw -45'  if $1=='1' else
-             'yaw -90'  if $1=='2' else
-             'yaw -135' if $1=='3' else
-             'yaw 180'  if $1=='4' else
-             'yaw 45'   if $1=='5' else
-             'yaw 90'   if $1=='6' else
-             'yaw 135'  if $1=='7' else
-             'pitch +45'if $1=='8' else
-             'pitch -45' if $1=='9' else chosen_angle }}
-        pro_stage: "bg"
-      say: "{{ '角度跳過。' if $1=='0' else '角度OK。' }} 接著選背景：輸入 A~E（0=跳過）。"
+  - name: choose_background
+    message: |
+      背景選單（第一次拍照地點附近5個熱門景點）：
+      A. 西門町紅樓
+      B. 淡水漁人碼頭
+      C. 九份老街
+      D. 台北101
+      E. 士林夜市
 
-  # ============ 背景 ============
-  - id: PRO_bg_quick
-    trigger: "on_text_matching: ^\\s*2\\s*$"
-    when: "!$busy && pro_stage != 'bg'"
-    do:
-      set:
-        bg_opts: "{{ nearby(@kb.backgrounds.pool, inferred_location, 5) or sample(@kb.backgrounds.pool, 5) }}"
-        pro_stage: "bg"
-      say: "背景選單：A{{bg_opts[0]}}｜B{{bg_opts[1]}}｜C{{bg_opts[2]}}｜D{{bg_opts[3]}}｜E{{bg_opts[4]}}（0=跳過）"
+      👉 輸入 A～E 選背景，或按 Q 拍照
+    actions:
+      - type: wait_user_input
 
-  - id: PRO_bg_menu
-    trigger: "on_text_matching: ^\\s*背景(?:選單)?\\s*$"
-    when: "!$busy"
-    do:
-      set:
-        bg_opts: "{{ nearby(@kb.backgrounds.pool, inferred_location, 5) or sample(@kb.backgrounds.pool, 5) }}"
-        pro_stage: "bg"
-      say: "背景選單：A{{bg_opts[0]}}｜B{{bg_opts[1]}}｜C{{bg_opts[2]}}｜D{{bg_opts[3]}}｜E{{bg_opts[4]}}（0=跳過）"
-
-  - id: PRO_bg_pick
-    trigger: "on_text_matching: ^\\s*([A-Ea-e0])\\s*$"
-    when: "!$busy && pro_stage == 'bg'"
-    do:
-      set:
-        chosen_bg: >-
-          {{ null if $1 in ['0'] else
-             bg_opts[0] if $1 in ['A','a'] else
-             bg_opts[1] if $1 in ['B','b'] else
-             bg_opts[2] if $1 in ['C','c'] else
-             bg_opts[3] if $1 in ['D','d'] else
-             bg_opts[4] }}
-        pro_stage: "idle"
-      say: "{{ '背景先跳過。' if $1=='0' else ('背景改成『' + chosen_bg + '』。') }} 準備好就按『Q』📷"
+  - name: take_photo
+    message: "📷 咔嚓！幫你拍好這張～要繼續換角度或背景嗎？"
+    actions:
+      - type: generate_image
+        prompt: "依照使用者選擇的角度與背景拍攝梁寧莉"
