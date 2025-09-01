@@ -936,3 +936,43 @@ phrases.json 不會被亂動，GPT 直接讀這裡。
 你想先讓我做這個嗎？    
 
 out
+# 工作日誌（拍照模組）｜2025-09-01 11:05:26 UTC+08:00
+## 目標
+- 三行選單永遠顯示且含編號（角度/背景/快門），並在拍照後回貼。
+- 角度/背景可鎖定；0=跳過；未設定角度按 Q 走隨機角度（正面僅為候選之一）。
+- 生圖排除攝影師/路人/相機。
+
+## 變更
+- 在 constants.ANGLE_MENU 固定三行完整選單，start / set_angle / set_bg / take_photo 全部回貼。
+- 新增 state.last_angle / state.last_bg，並在 parse_combo 支援 2bq、b3q、qb2、q。
+- 生圖 prompt 加入排除攝影師/他人規則。
+
+## 驗收建議
+1) 只按 q ⇒ 圖下方應出現三行完整選單（含編號）。
+2) 3q、7q ⇒ 角度正確（後腦勺＋側臉頰），無攝影師/路人。
+3) b3q、qb2 ⇒ 角度與背景皆鎖定；拍完仍回貼三行選單。
+
+**目的**
+- 任何時候都顯示三行必備文案
+- 按 Q 一定出圖（加 ready 防連點）
+- 角度提示詞放在模組內（不污染 UI 與 angles.json）
+- 背景列表仍由外部模組注入 A～E（`{bg1}…{bg5}` 占位）
+
+**整合步驟**
+1. 把本檔案存成 `module_pro.yaml` 覆蓋你的舊版。
+2. 已經提供 `phrases_fixed_v2.json`，請同步覆蓋 `phrases.json`。
+3. 生圖的實際動作把 `generate_image` 對接到你現有的函式即可。
+
+**關鍵修正**
+- `entry`、`angle_menu`、`bg_menu`、`wait_shutter`：確保三行文案固定出現
+- `angle_prompts`：3 / 7 角度含 `eyes looking away`
+- `shutter`：加入 `ready` 防抖，避免 Q 之後沒有出圖
+
+## 2025/09/01 更新日誌
+- ✅ **拍照模組 module_pro.yaml** 驗收通過
+- ✅ **phrases.json 字庫** 驗收通過
+- 🚫 **禁止修改**：module_pro.yaml、phrases.json
+- 📌 如果需要新增功能 → 請建立 `module_pro_plus.yaml`
+- 下一步計劃：
+  - 09/02 → 驗收 `module_duo.yaml`（合照模組）
+  - 09/03 → 測試 `module_pro_plus.yaml`
