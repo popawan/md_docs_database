@@ -976,3 +976,40 @@ out
 - 下一步計劃：
   - 09/02 → 驗收 `module_duo.yaml`（合照模組）
   - 09/03 → 測試 `module_pro_plus.yaml`
+from datetime import datetime
+from pathlib import Path
+
+# Today's date for filenames and logs
+today = datetime.today().strftime("%Y-%m-%d")
+
+# Content for the worklog
+worklog_content = f"""# 工作日誌 - {today}
+
+## 今日進度總結
+- **模組驗收**：`module_pro.yaml`（拍照模組） ✅ 驗收通過
+- **穩定性測試**：
+  - 測試 20+ 張照片
+  - 驗證角度、背景、Q 鍵續拍 → **全部正常**
+  - 文案固定顯示三行提示 → **穩定**
+- **主要修改**：
+  - 調整 **phrases.json** → 修正「第一次拍照」提示
+  - 增補角度與背景選單編號
+  - 補全缺失文案，確保所有流程一致
+- **模組鎖定**：
+  - `module_pro.yaml` **鎖定**
+  - `phrases.json` **鎖定**
+  - 禁止任何非必要修改，避免影響穩定度
+- **下一步計畫**：
+  - 明天進行 **module_duo.yaml**（合照模組）驗收
+  - 驗收通過後再統一規範模組與字庫
+- **備註**：
+  - 如需新功能，請基於 `module_pro_plus.yaml` 開發，避免修改穩定版
+
+"""
+
+# Save worklog as a standalone file
+worklog_path = Path(f"/mnt/data/worklog_{today}.md")
+with open(worklog_path, "w", encoding="utf-8") as f:
+    f.write(worklog_content)
+
+worklog_path
