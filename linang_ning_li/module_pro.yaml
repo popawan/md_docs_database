@@ -1,3 +1,18 @@
+# === Write updated module_pro.yaml with UI + internal prompts in one file ===
+from datetime import datetime, timezone, timedelta
+
+tz = timezone(timedelta(hours=8))  # Asia/Taipei
+now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S %Z")
+
+module_yaml = f"""# module_pro.yaml
+# 更新時間：{now}
+# 說明：依驗收規則整合「外部 UI（完整選單）」與「內部生圖提示詞」，不再依賴 angles.json/phrases.json。
+# 原則：不動 Router 與其他模組；保留舊文案為註解；所有出口維持三行選單一致性。
+# 今日工作日誌（摘要）：
+# - 修正 choose_angle 的 UI 選單（0=跳過；1~9 依規則：1左45、2左90、3左135(後腦勺+左臉頰)、4背影、5右45、6右90、7右135(後腦勺+右臉頰)、8仰視、9俯視）。
+# - 補上「內部生圖提示詞」ANGLE_PROMPTS（不顯示給使用者）。
+# - 規則：未選角度直接按 Q 時 → 隨機角度（正面只是候選之一，非必定）。
+
 name: module_pro
 locale: zh-TW
 
@@ -14,6 +29,7 @@ rules:
   - 以台灣場景為優先；不沿用自拍背景。
   - 女主身份鎖定，不可變性別/臉。
   - 產圖失敗：只提示「再按 Q 試試」或「換背景」，不要提技術詞。
+  - 未選角度直接按 Q：以「隨機角度」拍攝（正面只是候選之一，非必定正面）。
 
 steps:
   - name: start_pro
@@ -21,28 +37,48 @@ steps:
       📷 幫女主拍照！這張先隨機在台灣年輕人愛去的景點。
       （想換角度或背景，可以看選單）
 
-      👉 輸入角度 0～9  
-      👉 輸入背景 A～E  
+      👉 輸入角度 0～9
+      👉 輸入背景 A～E
       👉 或隨時按 Q 拍照
     actions:
       - type: generate_image
         prompt: "梁寧莉在台灣熱門景點自然拍照，風格寫實"
 
   - name: choose_angle
-    message: |
-      角度選單：
-      0. 正面（對視鏡頭）
-      1. 左45°（半側臉）
-      2. 右45°（半側臉）
-      3. 左135°（從後左方拍攝，eyes looking away）
-      4. 右135°（從後右方拍攝，eyes looking away）
-      5. 從上往下
-      6. 從下往上
-      7. 全身照
-      8. 半身照
-      9. 近距離特寫
+    # === 舊版 UI（保留追溯）===
+    # message: |
+    #   角度選單：
+    #   0. 正面（對視鏡頭）
+    #   1. 左45°（半側臉）
+    #   2. 右45°（半側臉）
+    #   3. 左135°（從後左方拍攝，eyes looking away）
+    #   4. 右135°（從後右方拍攝，eyes looking away）
+    #   5. 從上往下
+    #   6. 從下往上
+    #   7. 全身照
+    #   8. 半身照
+    #   9. 近距離特寫
+    #   👉 輸入 0～9 選角度，或按 Q 拍照
 
-      👉 輸入 0～9 選角度，或按 Q 拍照
+    # === 新版 UI（驗收一致版；外部顯示用）===
+    message: |
+      行 1｜角度選單（輸入 0～9；0 跳過）
+      1. 左45°
+      2. 左90°
+      3. 左135°（後腦勺＋左臉頰）
+      4. 背影
+      5. 右45°
+      6. 右90°
+      7. 右135°（後腦勺＋右臉頰）
+      8. 仰視
+      9. 俯視
+
+      行 2｜背景選單（A～E；當下附近 5 地點，無定位則 fallback）
+      例：A 地點1｜B 地點2｜C 地點3｜D 地點4｜E 地點5
+
+      行 3｜快門
+      ③ 直接拍照：按『Q』
+      （範例：2bq、b3q、qb2、q）
     actions:
       - type: wait_user_input
 
@@ -63,4 +99,45 @@ steps:
     message: "📷 咔嚓！幫你拍好這張～要繼續換角度或背景嗎？"
     actions:
       - type: generate_image
+        # 生圖時引用下方 ANGLE_PROMPTS（內部用；不顯示給使用者）
         prompt: "依照使用者選擇的角度與背景拍攝梁寧莉"
+
+# === 內部生圖提示詞（不顯示 UI；與 0～9 一一對應）===
+ANGLE_PROMPTS:
+  "0": "skip; use last angle or random neutral angle (not necessarily front-facing)"
+  "1": "rotate body/head 45 degrees left from self; half-profile left; natural gaze"
+  "2": "rotate 90 degrees left from self; clear left profile; full side face visible"
+  "3": "rotate 135 degrees left from self; back of head plus left cheek visible; eyes looking away"
+  "4": "back view; subject fully turned away from camera; no face visible"
+  "5": "rotate body/head 45 degrees right from self; half-profile right; natural gaze"
+  "6": "rotate 90 degrees right from self; clear right profile; full side face visible"
+  "7": "rotate 135 degrees right from self; back of head plus right cheek visible; eyes looking away"
+  "8": "low-angle shot from below; camera below subject; slight downward gaze toward camera"
+  "9": "high-angle shot from above; camera above subject; subject looking up toward camera"
+
+# === 變更紀錄（Changelog）===
+# {now}  修正 choose_angle UI 為驗收規則；加入 ANGLE_PROMPTS；規則化 Q 未選角度時之隨機角度行為。
+"""
+
+mpath = "/mnt/data/module_pro.yaml"
+with open(mpath, "w", encoding="utf-8") as f:
+    f.write(module_yaml)
+
+# === Write a short worklog file ===
+worklog = f"""# 工作日誌｜{now}
+## 模組：module_pro.yaml（幫女主拍照 PRO）
+- 修正「角度選單」為驗收一致版：0=跳過；1左45、2左90、3左135(後腦勺+左臉頰)、4背影、5右45、6右90、7右135(後腦勺+右臉頰)、8仰視、9俯視。
+- 新增內部「ANGLE_PROMPTS」：每個角度提供完整生圖提示詞（不顯示於 UI）。
+- 新規則：未選角度直接按 Q → 隨機角度（正面只是候選之一，非必定正面）。
+- 保留舊版 UI 為註解；僅最小修改，不動其他模組與 Router。
+
+## 驗收建議
+1. 先在 choose_angle 畫面確認三行選單是否完整且一致。
+2. 測試輸入 3/7 是否穩定呈現「後腦勺＋側臉頰」；並驗證 eyes looking away 效果。
+3. 不選角度直接按 Q，確認角度為隨機而非固定正面。
+"""
+wpath = "/mnt/data/WORKLOG_2025-09-01.md"
+with open(wpath, "w", encoding="utf-8") as f:
+    f.write(worklog)
+
+mpath, wpath
