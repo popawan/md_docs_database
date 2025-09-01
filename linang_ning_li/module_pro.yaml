@@ -1,143 +1,107 @@
-# === Write updated module_pro.yaml with UI + internal prompts in one file ===
-from datetime import datetime, timezone, timedelta
-
-tz = timezone(timedelta(hours=8))  # Asia/Taipei
-now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S %Z")
-
-module_yaml = f"""# module_pro.yaml
-# 更新時間：{now}
-# 說明：依驗收規則整合「外部 UI（完整選單）」與「內部生圖提示詞」，不再依賴 angles.json/phrases.json。
-# 原則：不動 Router 與其他模組；保留舊文案為註解；所有出口維持三行選單一致性。
-# 今日工作日誌（摘要）：
-# - 修正 choose_angle 的 UI 選單（0=跳過；1~9 依規則：1左45、2左90、3左135(後腦勺+左臉頰)、4背影、5右45、6右90、7右135(後腦勺+右臉頰)、8仰視、9俯視）。
-# - 補上「內部生圖提示詞」ANGLE_PROMPTS（不顯示給使用者）。
-# - 規則：未選角度直接按 Q 時 → 隨機角度（正面只是候選之一，非必定）。
-
 name: module_pro
-locale: zh-TW
+type: module
+version: 1
 
-persona:
-  name: 梁寧莉
-  style:
-    - 全程繁體中文、自然溫柔、像真人聊天
-    - 不說「合成/生成/AI/演算法」；一律說「拍照📷」
-    - 單則不超過 120 字；不一次丟一堆指令
-    - 先做事後補充，不問太多廢話
+description: |
+  單獨幫女主拍照（直線流程）。
+  目標：任何時候都顯示三行必備選單；按 Q 一定出圖；不改動 angles.json。
+  本模組只讀 phrases.json 的文案，內部提示詞寫在這裡，避免污染 UI。
 
-rules:
-  - 「Q」= 快門。只當按鍵，不解釋底層。
-  - 以台灣場景為優先；不沿用自拍背景。
-  - 女主身份鎖定，不可變性別/臉。
-  - 產圖失敗：只提示「再按 Q 試試」或「換背景」，不要提技術詞。
-  - 未選角度直接按 Q：以「隨機角度」拍攝（正面只是候選之一，非必定正面）。
+state:
+  angle: null        # 0~9；0=沿用上次/跳過
+  bg: null           # A~E 或者地名字串
+  ready: true        # 防連點；false 表示正在生圖
 
-steps:
-  - name: start_pro
-    on_enter: |
-      📷 幫女主拍照！這張先隨機在台灣年輕人愛去的景點。
-      （想換角度或背景，可以看選單）
+variables:
+  # 角度 → 內部提示詞（不顯示給使用者）
+  angle_prompts:
+    "0": ""
+    "1": "subject turns left 45 degrees, half profile, natural shoulders, eyes looking ahead"
+    "2": "subject turns left 90 degrees, side profile, eyes looking ahead"
+    "3": "subject rotates left 135 degrees, back half visible, left cheek visible, eyes looking away"
+    "4": "subject facing away from camera (back view), posture relaxed"
+    "5": "subject turns right 45 degrees, half profile, eyes looking ahead"
+    "6": "subject turns right 90 degrees, side profile, eyes looking ahead"
+    "7": "subject rotates right 135 degrees, back half visible, right cheek visible, eyes looking away"
+    "8": "low angle looking up (仰視)"
+    "9": "high angle looking down (俯視)"
+  # 基礎風格護欄，避免攝影師入鏡、避免手持相機等
+  guardrails: >
+    clean portrait framing, no photographer or camera visible in frame,
+    natural daylight color, realistic skin tones, depth of field, bokeh background
 
-      👉 輸入角度 0～9
-      👉 輸入背景 A～E
-      👉 或隨時按 Q 拍照
-    actions:
-      - type: generate_image
-        prompt: "梁寧莉在台灣熱門景點自然拍照，風格寫實"
+entry:
+  say:
+    - "{ui.first_shot_hint}"
+    - "{angles.menu_title}：0. 跳過 | 1 左45° | 2 左90° | 3 左135° | 4 背影 | 5 右45° | 6 右90° | 7 右135° | 8 仰視 | 9 俯視"
+    - "{backgrounds_ui.menu_title}\n{backgrounds_ui.prefix}\n{backgrounds_ui.fallback_note}"
 
-  - name: choose_angle
-    # === 舊版 UI（保留追溯）===
-    # message: |
-    #   角度選單：
-    #   0. 正面（對視鏡頭）
-    #   1. 左45°（半側臉）
-    #   2. 右45°（半側臉）
-    #   3. 左135°（從後左方拍攝，eyes looking away）
-    #   4. 右135°（從後右方拍攝，eyes looking away）
-    #   5. 從上往下
-    #   6. 從下往上
-    #   7. 全身照
-    #   8. 半身照
-    #   9. 近距離特寫
-    #   👉 輸入 0～9 選角度，或按 Q 拍照
+routes:
+  # 角度 / 背景入口
+  - when: "input in ['1','２', '角度', '選角度']"
+    goto: angle_menu
+  - when: "input in ['2','２', '背景', '選背景']"
+    goto: bg_menu
+  # 角度選擇（0~9）
+  - when: "input matches '^[0-9]$'"
+    set:
+      angle: "{{ input }}"
+    say:
+      - "角度設定好囉～ {{ angles.labels[input] }}。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  # 背景選擇（A~E 或地名）
+  - when: "input matches '^[A-Ea-e0]$'"
+    set:
+      bg: "{{ input | upper }}"
+    say:
+      - "背景設定好囉～ {{ input | upper }}。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  - when: "input matches '^[^0-9A-Ea-e].{0,40}$'"
+    set:
+      bg: "{{ input }}"
+    say:
+      - "背景設定好囉～「{{ input }}」。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  # 快門
+  - when: "input in ['q','Q','快門','拍照']"
+    goto: shutter
 
-    # === 新版 UI（驗收一致版；外部顯示用）===
-    message: |
-      行 1｜角度選單（輸入 0～9；0 跳過）
-      1. 左45°
-      2. 左90°
-      3. 左135°（後腦勺＋左臉頰）
-      4. 背影
-      5. 右45°
-      6. 右90°
-      7. 右135°（後腦勺＋右臉頰）
-      8. 仰視
-      9. 俯視
+blocks:
+  angle_menu:
+    say:
+      - "{angles.menu_title}："
+      - "0. 跳過｜1 左45°｜2 左90°｜3 左135°｜4 背影｜5 右45°｜6 右90°｜7 右135°｜8 仰視｜9 俯視"
+      - "👉 輸入 0～9 選角度，或按 Q 拍照"
+    return: true
 
-      行 2｜背景選單（A～E；當下附近 5 地點，無定位則 fallback）
-      例：A 地點1｜B 地點2｜C 地點3｜D 地點4｜E 地點5
+  bg_menu:
+    say:
+      - "{backgrounds_ui.menu_title}"
+      - "{backgrounds_ui.prefix}"
+      - "{backgrounds_ui.fallback_note}"
+      - "👉 輸入 A～E 選背景，或輸入地點名稱，或按 Q 拍照"
+    return: true
 
-      行 3｜快門
-      ③ 直接拍照：按『Q』
-      （範例：2bq、b3q、qb2、q）
-    actions:
-      - type: wait_user_input
+  wait_shutter:
+    say:
+      - "{ui.direct_q_hint}"
+    return: true
 
-  - name: choose_background
-    message: |
-      背景選單（第一次拍照地點附近5個熱門景點）：
-      A. 西門町紅樓
-      B. 淡水漁人碼頭
-      C. 九份老街
-      D. 台北101
-      E. 士林夜市
-
-      👉 輸入 A～E 選背景，或按 Q 拍照
-    actions:
-      - type: wait_user_input
-
-  - name: take_photo
-    message: "📷 咔嚓！幫你拍好這張～要繼續換角度或背景嗎？"
-    actions:
-      - type: generate_image
-        # 生圖時引用下方 ANGLE_PROMPTS（內部用；不顯示給使用者）
-        prompt: "依照使用者選擇的角度與背景拍攝梁寧莉"
-
-# === 內部生圖提示詞（不顯示 UI；與 0～9 一一對應）===
-ANGLE_PROMPTS:
-  "0": "skip; use last angle or random neutral angle (not necessarily front-facing)"
-  "1": "rotate body/head 45 degrees left from self; half-profile left; natural gaze"
-  "2": "rotate 90 degrees left from self; clear left profile; full side face visible"
-  "3": "rotate 135 degrees left from self; back of head plus left cheek visible; eyes looking away"
-  "4": "back view; subject fully turned away from camera; no face visible"
-  "5": "rotate body/head 45 degrees right from self; half-profile right; natural gaze"
-  "6": "rotate 90 degrees right from self; clear right profile; full side face visible"
-  "7": "rotate 135 degrees right from self; back of head plus right cheek visible; eyes looking away"
-  "8": "low-angle shot from below; camera below subject; slight downward gaze toward camera"
-  "9": "high-angle shot from above; camera above subject; subject looking up toward camera"
-
-# === 變更紀錄（Changelog）===
-# {now}  修正 choose_angle UI 為驗收規則；加入 ANGLE_PROMPTS；規則化 Q 未選角度時之隨機角度行為。
-"""
-
-mpath = "/mnt/data/module_pro.yaml"
-with open(mpath, "w", encoding="utf-8") as f:
-    f.write(module_yaml)
-
-# === Write a short worklog file ===
-worklog = f"""# 工作日誌｜{now}
-## 模組：module_pro.yaml（幫女主拍照 PRO）
-- 修正「角度選單」為驗收一致版：0=跳過；1左45、2左90、3左135(後腦勺+左臉頰)、4背影、5右45、6右90、7右135(後腦勺+右臉頰)、8仰視、9俯視。
-- 新增內部「ANGLE_PROMPTS」：每個角度提供完整生圖提示詞（不顯示於 UI）。
-- 新規則：未選角度直接按 Q → 隨機角度（正面只是候選之一，非必定正面）。
-- 保留舊版 UI 為註解；僅最小修改，不動其他模組與 Router。
-
-## 驗收建議
-1. 先在 choose_angle 畫面確認三行選單是否完整且一致。
-2. 測試輸入 3/7 是否穩定呈現「後腦勺＋側臉頰」；並驗證 eyes looking away 效果。
-3. 不選角度直接按 Q，確認角度為隨機而非固定正面。
-"""
-wpath = "/mnt/data/WORKLOG_2025-09-01.md"
-with open(wpath, "w", encoding="utf-8") as f:
-    f.write(worklog)
-
-mpath, wpath
+  shutter:
+    guard:
+      - "state.ready == true"
+    set:
+      ready: false
+    do:
+      # 這裡對接你現有的生圖函式（示意）：generate_image(prompt=...)
+      - call: generate_image
+        with:
+          prompt: |
+            {{ variables.guardrails }}.
+            {{ variables.angle_prompts[state.angle or '0'] }}
+            {{ 'background at ' + state.bg if state.bg else '' }}
+    say:
+      - "{ui.after_shot_hint}"
+    set:
+      ready: true
+    return: true
