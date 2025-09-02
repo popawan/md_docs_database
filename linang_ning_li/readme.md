@@ -1011,5 +1011,7 @@ worklog_content = f"""# 工作日誌 - {today}
 worklog_path = Path(f"/mnt/data/worklog_{today}.md")
 with open(worklog_path, "w", encoding="utf-8") as f:
     f.write(worklog_content)
+    2025-09-02 11:30 | README.md | 補充〈工作日誌規範〉章節，明確定義完整檔案交付、程式碼註解保留、新碼就地補上，以及日誌同步更新原則
+
 
 worklog_path
