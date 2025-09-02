@@ -1024,3 +1024,5 @@ worklog_path
 2025-09-02 12:25 | router.yaml | 檢閱路由設定，確認已掛載三模組（chat / duo / pro），其中「合照」輸入正確導向 module_duo.yaml；已驗收鎖定不可修改
 
 2025-09-02 14:40 | module_duo.yaml / phrases.json | 合照模組「等待上傳」提示已與字庫逐字對齊，畫面顯示正確且不再被其他模組字串覆蓋；仍維持不動拍照模組與 router 的原則
+
+2025-09-02 15:05 | module_duo.yaml / phrases.json | 合照模組補齊對齊：新增 DUO 專屬角度/背景選單與續拍文案（不共用拍照模組鍵），將輸出比例改為 1024×1536；保持小改、不動拍照模組與 router
