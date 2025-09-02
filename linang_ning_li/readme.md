@@ -1019,3 +1019,4 @@ worklog_path
 
 2025-09-02 11:50 | module_duo.yaml | 整理合照模組現況，確認流程包含：初始化、等待上傳、快門拍照（成功/失敗）、換人流程，並建立驗收測試清單
 
+2025-09-02 12:10 | phrases.json | 檢閱拍照模組字庫，確認內容完整（greetings、prompts、errors、ui、angles、backgrounds_ui、post_shot、chat_phrases），已驗收鎖定不可修改
