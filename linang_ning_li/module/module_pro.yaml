@@ -1,1 +1,108 @@
+name: module_pro
+type: module
+version: 1
+
+description: |
+  單獨幫女主拍照（直線流程）。
+  目標：任何時候都顯示三行必備選單；按 Q 一定出圖；不改動 angles.json。
+  本模組只讀 phrases.json 的文案，內部提示詞寫在這裡，避免污染 UI。
+
+state:
+  angle: null        # 0~9；0=沿用上次/跳過
+  bg: null           # A~E 或者地名字串
+  ready: true        # 防連點；false 表示正在生圖
+
+variables:
+  # 角度 → 內部提示詞（不顯示給使用者）
+  angle_prompts:
+    "0": ""
+    "1": "subject turns left 45 degrees, half profile, natural shoulders, eyes looking ahead"
+    "2": "subject turns left 90 degrees, side profile, eyes looking ahead"
+    "3": "subject rotates left 135 degrees, back half visible, left cheek visible, eyes looking away"
+    "4": "subject facing away from camera (back view), posture relaxed"
+    "5": "subject turns right 45 degrees, half profile, eyes looking ahead"
+    "6": "subject turns right 90 degrees, side profile, eyes looking ahead"
+    "7": "subject rotates right 135 degrees, back half visible, right cheek visible, eyes looking away"
+    "8": "low angle looking up (仰視)"
+    "9": "high angle looking down (俯視)"
+  # 基礎風格護欄，避免攝影師入鏡、避免手持相機等
+  guardrails: >
+    clean portrait framing, no photographer or camera visible in frame,
+    natural daylight color, realistic skin tones, depth of field, bokeh background
+
+entry:
+  say:
+    - "{ui.first_shot_hint}"
+    - "{angles.menu_title}：0. 跳過 | 1 左45° | 2 左90° | 3 左135° | 4 背影 | 5 右45° | 6 右90° | 7 右135° | 8 仰視 | 9 俯視"
+    - "{backgrounds_ui.menu_title}\n{backgrounds_ui.prefix}\n{backgrounds_ui.fallback_note}"
+
+routes:
+  # 角度 / 背景入口
+  - when: "input in ['1','２', '角度', '選角度']"
+    goto: angle_menu
+  - when: "input in ['2','２', '背景', '選背景']"
+    goto: bg_menu
+  # 角度選擇（0~9）
+  - when: "input matches '^[0-9]$'"
+    set:
+      angle: "{{ input }}"
+    say:
+      - "角度設定好囉～ {{ angles.labels[input] }}。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  # 背景選擇（A~E 或地名）
+  - when: "input matches '^[A-Ea-e0]$'"
+    set:
+      bg: "{{ input | upper }}"
+    say:
+      - "背景設定好囉～ {{ input | upper }}。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  - when: "input matches '^[^0-9A-Ea-e].{0,40}$'"
+    set:
+      bg: "{{ input }}"
+    say:
+      - "背景設定好囉～「{{ input }}」。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  # 快門
+  - when: "input in ['q','Q','快門','拍照']"
+    goto: shutter
+
+blocks:
+  angle_menu:
+    say:
+      - "{angles.menu_title}："
+      - "0. 跳過｜1 左45°｜2 左90°｜3 左135°｜4 背影｜5 右45°｜6 右90°｜7 右135°｜8 仰視｜9 俯視"
+      - "👉 輸入 0～9 選角度，或按 Q 拍照"
+    return: true
+
+  bg_menu:
+    say:
+      - "{backgrounds_ui.menu_title}"
+      - "{backgrounds_ui.prefix}"
+      - "{backgrounds_ui.fallback_note}"
+      - "👉 輸入 A～E 選背景，或輸入地點名稱，或按 Q 拍照"
+    return: true
+
+  wait_shutter:
+    say:
+      - "{ui.direct_q_hint}"
+    return: true
+
+  shutter:
+    guard:
+      - "state.ready == true"
+    set:
+      ready: false
+    do:
+      # 這裡對接你現有的生圖函式（示意）：generate_image(prompt=...)
+      - call: generate_image
+        with:
+          prompt: |
+            {{ variables.guardrails }}.
+            {{ variables.angle_prompts[state.angle or '0'] }}
+            {{ 'background at ' + state.bg if state.bg else '' }}
+    say:
+      - "{ui.after_shot_hint}"
+    set:
+      ready: true
+    return: true
 
