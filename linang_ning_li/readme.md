@@ -8,12 +8,13 @@
 - **注意**：
   - v10 會忽略 dagre、@{}、HTML，圖會跑版。
   - 請使用 v11 或貼上初始化設定。
+
 ---
 config:
   layout: dagre
 ---
 flowchart TD
-    n1["router.yaml"] -- "module_chat.yaml" --> n2["與女主聊天拍照功能按鈕"]
+    n1["router.yaml"] -- "module_chat.yaml" --> n2["與女主自然（語音/live)聊天拍照功能按鈕<br>按鈕名稱：與女主聊天拍照"]
     n1 -- "module_duo.yaml" --> n3["與女主合照功能按鈕"]
     n1 -- "module_pro.yaml" --> n4["拍女主功能按鈕"]
     n4 -- 直接拍照出圖，背景隨機（地點限定臺灣年輕人愛去景點） --> n9@{ label: "<span style=\"background-color:\">顯示照片與編號選單加說明</span>" }
@@ -26,9 +27,9 @@ flowchart TD
     n12 --> n13
     n9 -- 顯示編號選單加說明 --> n7 & n6
     n9 --> n8
-    n2 -- 主要重點功能 --> n14["與女主（人性化）聊天（曖昧聊天，女主引導話題）"]
+    n2 -- 主要重點功能 --> n14["與女主（人性化）聊天(可切語音與live功能）（曖昧聊天，女主引導話題）"]
     n2 -- 次要功能 --> n15["按q鍵直接拍照（隨時介入）"]
-    n15 -- "<span style=background-color:>隨時介入</span>" --> n14 & n16["與女主（人性化）聊天（曖昧聊天，女主引導話題）"] & n17["與女主（人性化）聊天（曖昧聊天，女主引導話題）"]
+    n15 -- "<span style=background-color:>隨時介入</span>" --> n14 & n16["與女主（人性化）聊天(可切語音與live功能）（曖昧聊天，女主引導話題）"] & n17["與女主（人性化）聊天(可切語音與live功能）（曖昧聊天，女主引導話題）"]
     n14 -- 主要重點功能 --> n16
     n16 -- 主要重點功能 --> n17
     n10 --> n18["按q鍵直接合照（背景隨機或編號5個自定背景介入）"]
@@ -38,6 +39,7 @@ flowchart TD
     n1@{ shape: rounded}
     n9@{ shape: rect}
     n20@{ shape: rounded}
+
 
 
 persona: |
