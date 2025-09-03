@@ -41,11 +41,6 @@ flowchart TD
 
 
 
-
-
-
-
-
 # Taiwan Ai Chat — GPTS 全功能規格與驗收手冊  
 **版本**：v1.0  
 **日期**：2025-08-28  
