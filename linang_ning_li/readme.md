@@ -1188,4 +1188,74 @@ tw_places.json	✅ 完成	新增 200+ 熱門地點	已整合
 這樣完成後，新增地點就完全不用動 code。
 
 
+# 工作日誌（2025-09-04 04:19）
+- 更新 phrases：已加入 LIVE 空間轉換器「切回來」台詞（return.1/2/topic）。
+- 更新 module_chat.yaml：
+  - 新增地點鎖定流程（soft_idle / lock_from_user / nudge / autoset / shutter_guard）。
+  - 新增 LIVE 入口/開啟/觀察/關閉/回來了 過渡（含 300ms 緩衝）。
+  - 全部以 🔴 註解標示；不影響拍照/合照模組。
+- 更新 router：先前已添加 on_live_icon:on/off、on_live_feed_tick 對應（annotated）。
+2025-09-04
+phrases_live_portal_final_v3.json
+
+新增 LIVE 模式切換後「回來了」台詞：
+
+live.portal.return.1：「啊～我又回來了！剛剛真有趣～」
+
+live.portal.return.2：「嘿，我回到這邊啦～剛剛看到的還挺特別的。」
+
+live.portal.return.topic：「剛剛那個{{topic}}好可愛喔～你平常會常去嗎？」
+
+module_chat.yaml
+
+新增 LIVE 空間轉換器完整流程：
+
+CHAT_live_portal_intro → CHAT_live_portal_open → CHAT_live_portal_observe → CHAT_live_portal_close
+
+關閉後 300ms 自動補「啊～我又回來了！」，如有 topic_detected 會自然銜接話題
+
+新增地點鎖定與柔性引導流程：
+
+CHAT_soft_idle → CHAT_lock_from_user_place → CHAT_nudge_place → CHAT_autoset_place → CHAT_shutter_guard
+
+所有新增邏輯都有 🔴紅色註解，不影響拍照/合照模組。
+
+router_annotated.yaml
+
+新增 3 個事件：
+
+on_live_icon:on → 進入 LIVE
+
+on_live_icon:off → 關閉 LIVE
+
+on_live_feed_tick → LIVE 視訊更新
+
+工作日誌（可貼 README）
+
+2025-09-04
+
+phrases_full_annotated_20250904_064338.json（基於原檔安全合併）
+
+新增 chat.start.desktop / chat.start.mobile（含「電腦請自行開語音鍵」、手機解釋空間轉換器）
+
+內嵌提醒：不要長時間開著空間轉換器聊天；需要用時再開，平時用語音即可
+
+補齊 chat.* 場景鎖定與 live.portal.* 固定說法
+
+其餘模組字庫未變更
+
+需要我同步調整 module_chat_annotated.yaml 的開場選擇（桌機→chat.start.desktop、手機→chat.start.mobile）來對齊這份字庫嗎？
+
+2025-09-04
+
+module_chat_annotated.yaml（僅更新文案呼叫；功能不變）
+
+開場白對齊 chat.start.*，含空間轉換器說明與「不要長開」提醒
+
+開場後追加「地點鎖定」引導句，確保沉浸感
+
+拍照／合照模組與 router 皆未更動
+
+要不要我順手把 router.yaml 檢查一次是否仍指向 module_chat.yaml（不改名就不用動），或你要我直接幫你觸發一次模擬對話流程（開場→鎖地點→Q 拍→繼續聊）來確認台詞流暢？
+
 
