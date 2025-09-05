@@ -1258,4 +1258,63 @@ module_chat_annotated.yaml（僅更新文案呼叫；功能不變）
 
 要不要我順手把 router.yaml 檢查一次是否仍指向 module_chat.yaml（不改名就不用動），或你要我直接幫你觸發一次模擬對話流程（開場→鎖地點→Q 拍→繼續聊）來確認台詞流暢？
 
+📒 工作日誌 — 2025-09-05
+🔧 系統模組與程式調整
 
+router.yaml（正式版）
+
+確認所有模組掛載順序，恢復使用正式 router，不再走獨立 router_chat。
+
+載入順序已鎖定：router.yaml → module_chat.yaml → phrases.json。
+
+phrases.json（字庫）
+
+保持原有 PRO / DUO 文案不變，避免污染。
+
+新增並鎖定 CHAT 專用命名空間：chat.*、live.*、scene.*、photo.*。
+
+確認 CHAT 模組需要的固定文案已存在，例如：
+
+chat.start.desktop / chat.start.mobile
+
+chat.intro.1、chat.intro.2
+
+photo.ready.*
+
+scene.prevent_shot.nolock.*
+
+live.portal.intro、live.portal.open.*
+
+module_chat.yaml v1.0
+
+生成新版程式模組，確保：
+
+入口明確：router 指向 start → chat_desktop_start / chat_mobile_start。
+
+三行輸出：每一步驟至少三行文案，避免 GPT-5 腦補。
+
+對齊字庫：所有 say_id 僅使用 chat 專區鍵，與 phrases.json 一一對應。
+
+桌機 / 手機分支：
+
+桌機 → 提示使用者手動開啟語音。
+
+手機 → 自動開啟 Live + 語音。
+
+保護機制：未鎖定地點時禁止拍照，會提示用戶先選擇場景。
+
+📝 問題與發現
+
+與 PRO / DUO 不同，CHAT 模組結構複雜（桌面 / 手機分支、Live 模式、語音引導），如果 say_id 或輸出格式不完整，GPT-5 會直接跳過模組。
+
+其他模組只需「文案對齊」即可成功，但 CHAT 模組還需要 入口鎖定 + 三行輸出規範。
+
+確認 GPT-5 執行程式時，文件順序 與 README 規範一致是必要條件。
+
+✅ 成果
+
+已完成 module_chat.yaml v1.0，對齊字庫並鎖定三行輸出規範。
+
+確定 router.yaml、phrases.json、module_chat.yaml 三者已正確銜接。
+
+明日待辦：驗證 CHAT 模組實際輸出，並補充 live.pause_for_menu 等可能缺失的文案。
