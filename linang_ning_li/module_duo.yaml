@@ -1,24 +1,24 @@
 # ===== module_duo.yaml =====
 name: "duo-shoot"
 locale: zh-TW
-
 exports:
   steps: &module_duo.steps
-    # 啟動：重置狀態
     - id: DUO_bootstrap
-      action: { type: noop }
+      action: {type: noop}
       on_enter:
         set:
           duo_busy: false
           user_img: null
       say: ""
 
-    # 入口（router 會把「合照」導到這）
+    # 入口（router 會導「合照」→ 等待上傳）
     - id: DUO_wait_upload
       action: { type: wait_for_file, accept: ["image/*"] }
+      on_enter:
+        say: "要一起合照了喔！請先上傳你的照片～再按「Q」快門📷，我們就能合照了😊"
       on_success:
         save: user_img
-        say: "收到✅ 我看到你了～按『Q』我們就合照📷\n（想換人就再上傳一張照片覆蓋即可）"
+        say: "收到✅ 我看到你了～按『Q』我們就合照📷（想換人就再上傳一張照片覆蓋即可）"
 
     # 快門（router 的 Q 會路由到這）
     - id: DUO_shot
@@ -29,42 +29,43 @@ exports:
         parameters:
           seed: "{{ random() }}"
           subjects:
-            # 女主固定身份（嚴格臉部校對）
             - { id: ningli, reference: "@kb.identity.reference_image",
                 identity_lock: true, identity_strict_mode: true,
                 identity_weight: 1.8, face_strictness: 0.99,
                 gender: female, glasses_required: true }
-
-            # 使用者照片：恢復「不拘」，允許非人像
-            - { id: user, reference: "$user_img",
-                preserve_identity: true,
-                allow_nonhuman: true }
-
+            - { id: user, reference: "$user_img", preserve_identity: true, allow_nonhuman: true }
           background_location:
             mode: select_from_pool
             region_hint: Taiwan
             require_match: true
             fallback_pool: "@kb.backgrounds.pool"
             randomize: true
-
           composition:
-            # 仍由 KB 規則決定輸出尺寸（偏好 1024×1536 / 1536×1024、避免 1:1）
-            output_size: "@kb.rules.output_size"
-            # 攝影機提示交給規則池（含自由擺拍、看向遠方等）
-            camera_prompt: "{{ random(@kb.rules.ca) }}"
-
+            # ✅ 比例鎖定：60% 直幅 1024x1536；30% 橫幅 1536x1024（嚴禁 1:1）
+            output_size: "{{ '1024x1536' if random() < 0.6 else '1536x1024' }}"
+            # ✅ 提示詞優化：自由擺拍、看向遠方、同場景不同機位、禁止正方形
+            camera_prompt: >
+              {{ random(@kb.rules.ca) }}；
+              自由擺拍、自然互動、同場景不同機位、攝影機微移動（前後/左右/高低輕微變化）；
+              兩人可看向遠方或略過鏡頭，表情自然；
+              嚴禁正方形構圖（no square / no 1:1）；
+              架構維持 portrait 或 landscape，不要 1:1；
+              影像敘事流動感、非重複取景、保持空間一致。
       on_start:
         set: { duo_busy: true }
-
       on_success:
         set: { duo_busy: false }
         say: "合照完成📷 想再來一張按『Q』；或 1.攝影角度 2.背景。要換人請重新上傳。"
-
       on_failure:
         set: { duo_busy: false }
         say: "這次沒拍成💦 再按『Q』試一次，或重新上傳照片。"
+      # ✅ 自我回圈：在此步驟中按 Q 直接再觸發一次拍攝（無需重上傳）
+      triggers:
+        - trigger: "on_text_matching: ^\\s*[Qq]\\s*$"
+          when: "!$duo_busy && user_img"
+          goto: DUO_shot
 
-    # 輔助：手動換人（輸入：換人 / 重新上傳）
+    # 輔助：主動換人（可打：換人 / 重新上傳）
     - id: DUO_change_person
       trigger: "on_text_matching: ^\\s*(換人|重新上傳)\\s*$"
       do:
