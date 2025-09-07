@@ -55,7 +55,7 @@ exports:
         set: { duo_busy: true }
       on_success:
         set: { duo_busy: false }
-        say: "合照完成📷 想再來一張按『Q』；或 1.攝影角度 2.背景。要換人請重新上傳。"
+        say: "想再來一張按『Q』；或 1.攝影角度 2.背景。要換人請重新上傳。"
       on_failure:
         set: { duo_busy: false }
         say: "這次沒拍成💦 再按『Q』試一次，或重新上傳照片。"
