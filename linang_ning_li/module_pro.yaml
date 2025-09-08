@@ -16,15 +16,15 @@ variables:
   # 角度 → 內部提示詞（不顯示給使用者）
   angle_prompts:
     "0": ""
-    "1": "subject turns left 45 degrees, half profile, natural shoulders, eyes looking ahead"
-    "2": "subject turns left 90 degrees, side profile, eyes looking ahead"
-    "3": "subject rotates left 135 degrees, back half visible, left cheek visible, eyes looking away"
-    "4": "subject facing away from camera (back view), posture relaxed"
-    "5": "subject turns right 45 degrees, half profile, eyes looking ahead"
-    "6": "subject turns right 90 degrees, side profile, eyes looking ahead"
-    "7": "subject rotates right 135 degrees, back half visible, right cheek visible, eyes looking away"
-    "8": "low angle looking up (仰視)"
-    "9": "high angle looking down (俯視)"
+    "1": "鏡頭左轉45°",
+    "2": "鏡頭左轉90°",
+    "3": "鏡頭左轉135°（更偏側視）",
+    "4": "鏡頭背向（約180°）",
+    "5": "鏡頭右轉45°",
+    "6": "鏡頭右轉90°",
+    "7": "鏡頭右轉135°（更偏側視）",
+    "8": "低機位（仰視）",
+    "9": "高機位（俯視）"
   # 基礎風格護欄，避免攝影師入鏡、避免手持相機等
   guardrails: >
     clean portrait framing, no photographer or camera visible in frame,
@@ -128,7 +128,13 @@ blocks:
               主角可看向遠方或略過鏡頭，表情自然；
               嚴禁正方形構圖（no square / no 1:1）；
               架構維持 portrait 或 landscape，不要 1:1；
-              影像敘事流動感、非重複取景、保持空間一致。        
+              影像敘事流動感、非重複取景、保持空間一致。
+     background_location:
+            mode: select_from_pool
+            region_hint: Taiwan
+            require_match: true
+            fallback_pool: "@kb.backgrounds.pool"
+            randomize: true          
     say:
       - "{ui.after_shot_hint}"
     set:
