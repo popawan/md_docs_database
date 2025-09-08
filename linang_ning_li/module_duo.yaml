@@ -4,7 +4,7 @@ locale: zh-TW
 exports:
   steps: &module_duo.steps
     - id: DUO_bootstrap
-      action: {type: noop}
+      action: { type: noop }
       on_enter:
         set:
           duo_busy: false
@@ -30,27 +30,26 @@ exports:
           seed: "{{ random() }}"
           subjects:
             prompt: |
-            {{ variables.guardrails }}.
-            {{ variables.angle_prompts[state.angle or '0'] }}
-            {{ 'background at ' + state.bg if state.bg else '' }}
-          
-           composition:
+              {{ variables.guardrails }}.
+              {{ variables.angle_prompts[state.angle or '0'] }}
+              {{ 'background at ' + state.bg if state.bg else '' }}
+          composition:
             # ✅ 比例鎖定：60% 直幅 1024x1536；30% 橫幅 1536x1024（嚴禁 1:1）
             output_size: "{{ '1024x1536' if random() < 0.6 else '1536x1024' }}"
             # ✅ 提示詞優化：自由擺拍、看向遠方、同場景不同機位、禁止正方形
-           camera_prompt: >
-              {{ random(@kb.rules.ca) }}；
-              自由擺拍、自然互動、同場景不同機位、攝影機微移動（前後/左右/高低輕微變化）；
-              兩人可看向遠方或略過鏡頭，表情自然；
-              嚴禁正方形構圖（no square / no 1:1）；
-              架構維持 portrait 或 landscape，不要 1:1；
-              影像敘事流動感、非重複取景、保持空間一致。
-           background_location:
-             mode: select_from_pool
-             region_hint: Taiwan
-             require_match: true
-             fallback_pool: "@kb.backgrounds.pool"
-             randomize: true    
+          camera_prompt: >
+            {{ random(@kb.rules.ca) }}；
+            自由擺拍、自然互動、同場景不同機位、攝影機微移動（前後/左右/高低輕微變化）；
+            兩人可看向遠方或略過鏡頭，表情自然；
+            嚴禁正方形構圖（no square / no 1:1）；
+            架構維持 portrait 或 landscape，不要 1:1；
+            影像敘事流動感、非重複取景、保持空間一致。
+          background_location:
+            mode: select_from_pool
+            region_hint: Taiwan
+            require_match: true
+            fallback_pool: "@kb.backgrounds.pool"
+            randomize: true
       on_start:
         set: { duo_busy: true }
       on_success:
