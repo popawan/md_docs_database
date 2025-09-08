@@ -1,57 +1,54 @@
-module: module_chat
-state:
-  mode_chat: false
-  chosen_bg: null
-  chat_loc_ok: false
+# ============ module_chat.yaml — 純聊天穩定版（不引用鍵，逐字對齊） ============
+name: "module_chat"
+locale: zh-TW
 
-engine_subjects: &CHAT_SUBJ
-  - { id: ningli,
-      reference: "@kb.identity.reference_image",
-      identity_lock: true, identity_strict_mode: true,
-      identity_weight: "@kb.identity.identity_weight",
-      face_strictness: "@kb.identity.face_strictness",
-      gender: female, glasses_required: true }
+exports:
+  steps:
 
-engine_comp: &CHAT_COMP
-  output_size: "@kb.layout_rules.default_portrait"
-  camera_prompt: "50mm; natural light; waist_up"
+    - id: CHAT_bootstrap
+      action: { type: noop }
+      on_enter: { set: { chat_busy: false } }
+      say: ""
 
-steps:
-  - id: CHAT_on
-    trigger: "on_text_matching: ^\\s*(聊天拍|聊天拍照|聊天模式)\\s*$"
-    when: "!$busy"
-    do:
-      set: { mode_chat: true, chat_loc_ok: false, chosen_bg: null }
-      say: "{{ @kb.phrases.chat_photo.ask_location or '你想把我拍在哪裡呢？' }}"
+    - id: CHAT_entry
+      action: { type: noop }
+      goto: CHAT_opening
 
-  - id: CHAT_loc_free
-    trigger: "on_text_matching: ^\\s*(?:在)?([\\u4e00-\\u9fa5A-Za-z0-9·\\-＿—\\s]{2,})\\s*$"
-    when: "!$busy && mode_chat && !chat_loc_ok"
-    do:
-      set: { chosen_bg: "{{ $1.strip() }}", chat_loc_ok: true }
-      say: "{{ (@kb.phrases.chat_photo.confirm_location or '好～那我們就拍在「{{chosen_bg}}」，準備好按Q拍📷').replace('{{chosen_bg}}', chosen_bg) }}"
+    # 首屏：逐字拷貝字庫文案（不可改動）
+    - id: CHAT_opening
+      action: { type: noop }
+      on:
+        - trigger: "on_enter"
+          do:
+            if: "@platform == 'desktop'"
+            then:
+              say: "桌機：純聊天模式，沒有 Q 鍵與拍照；想打字請先關語音。"
+            else:
+              say: "手機：純聊天模式，可開語音；要一起看就開 Live。"
+      goto: CHAT_loop
 
-  - id: CHAT_shutter
-    trigger: "on_text_matching: ^\\s*(?:[QqＱｑ]|快門|拍|拍照|/q)\\s*$"
-    when: "mode_chat"
-    action:
-      type: image
-      operationId: system.compose
-      parameters:
-        subjects: *CHAT_SUBJ
-        background_location:
-          prefer: "{{ chosen_bg }}"
-          mode: select_from_pool_or_name_match
-          region_hint: Taiwan
-          require_match: false
-          fallback_pool: []
-          randomize: false
-        composition: *CHAT_COMP
-    on_success: { set: { busy: false }, say: "{{ @kb.phrases.greetings[2] or '拍好了📷' }} 我們繼續聊～想再拍就按『Q』。" }
-    on_failure: { set: { busy: false }, say: "{{ @kb.phrases.errors.compose_fail or '這次沒拍成功💦 再按『Q』試一次吧' }}" }
+    # 主迴圈：純聊天；拍照詞沉默；圖片只接話題
+    - id: CHAT_loop
+      action: { type: noop }
+      on:
+        - trigger: "on_text_matching: ^\\s*(Q|q|Ｑ|按Q|按Ｑ|快門)\\s*$"
+          do: { say: "" }
+          goto: CHAT_loop
 
-  - id: CHAT_off
-    trigger: "on_text_matching: ^\\s*(結束聊天拍|退出聊天拍|關閉聊天拍)\\s*$"
-    when: "!$busy"
-    do: { set: { mode_chat: false, chat_loc_ok: false, chosen_bg: null }, say: "已關閉聊天拍～" }
+        - trigger: "on_text_matching: (拍照|合照|角度|背景|換景|清單|列表|輸入1|輸入２|輸入2|^0\\.|^1\\.|^2\\.|•)"
+          do: { say: "" }
+          goto: CHAT_loop
 
+        - trigger: "on_file_uploaded: image/*"
+          do: { say: "收到圖片，我們就從這張聊起～" }
+          goto: CHAT_loop
+
+        # 一般聊天：回聲+輕度追問（不腦補長句）
+        - trigger: "on_text_matching: .+"
+          do:
+            set:
+              _msg_raw: "@event.text"
+              msg: "{{ _msg_raw | trim | slice(0, 120) }}"
+            say: "{{ msg }}"
+            then: { say: "想多說一點嗎？我在聽～" }
+          goto: CHAT_loop
