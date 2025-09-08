@@ -1,23 +1,18 @@
-name: router
-type: router
+# ============ router.yaml — 穩定對齊版 ============
+routes:
+  - id: ROUTE_chat
+    match: "^/chat$"
+    goto: module_chat.CHAT_entry
+    meta:
+      platform: [desktop, mobile]
+      module: "module_chat"
+      secure: true
+      gpt_isolation: true
 
-steps:
-  # 與女主聊天（含聊天拍照）
-  - condition: "input contains '聊天' or input contains '聊天拍'"
-    target: module_chat.yaml
+  - id: ROUTE_photo
+    match: "^/photo$"
+    goto: module_photo.ENTRY
 
-  # 與女主合照
-  - condition: "input contains '合照'"
-    target: module_duo.yaml
-
- # 單獨拍女主
-- condition: "input contains '幫女主拍照'"
-  target: module_pro.yaml
-
-- condition: "input is '拍照'"
-  target: module_pro.yaml
-
-# 備註：
-# - 三模組全掛上（module_chat / module_duo / module_pro）
-# - 不要刪掉，否則明天驗收時會缺功能
-# - 如果要切換到新模組，可把 module_pro.yaml 換成 module_pro_new.yaml（但建議先鎖住 module_pro.yaml 成功版）
+  - id: ROUTE_duo
+    match: "^/duo$"
+    goto: module_duo.ENTRY
