@@ -1519,4 +1519,8 @@ GPT 不可腦補 → 所有聊天回覆固定用 phrases.json 文案。
 
 新增的功能註明「新增」或「調整」。
 
+已思考 32s
 
+[10:32] 狀態：PRO/DUO穩；臉鎖ok；比例6:4
+[10:33] 多語：加en/ja/ko，僅換字庫；phrases.en/ja/ko.json，鍵同zh-TW；router傳locale
+[10:34] 下一步：我出模板，你審語氣。評分9.5
