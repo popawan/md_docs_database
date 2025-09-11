@@ -4,7 +4,7 @@ locale: zh-TW
 exports:
   steps: &module_duo.steps
     - id: DUO_bootstrap
-      action: {type: noop}
+      action: { type: noop }
       on_enter:
         set:
           duo_busy: false
@@ -29,10 +29,16 @@ exports:
         parameters:
           seed: "{{ random() }}"
           subjects:
-            - { id: ningli, reference: "@kb.identity.reference_image",
-                identity_lock: true, identity_strict_mode: true,
-                identity_weight: 1.8, face_strictness: 0.99,
-                gender: female, glasses_required: true }
+            - {
+                id: ningli,
+                reference: "@kb.identity.reference_image",
+                identity_lock: true,
+                identity_strict_mode: true,
+                identity_weight: 1.8,
+                face_strictness: 0.995,
+                gender: female,
+                glasses_required: true
+              }
             - { id: user, reference: "$user_img", preserve_identity: true, allow_nonhuman: true }
           background_location:
             mode: select_from_pool
