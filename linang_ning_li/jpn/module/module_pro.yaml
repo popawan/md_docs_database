@@ -1,0 +1,156 @@
+# === FACE LOCK (Photo) v11.1.1d ===
+steps:
+  - id: FACE_lock_bootstrap_PRO
+    action: { type: noop }
+    on_enter:
+      set:
+        # 顔固定：外部で指定がない場合、デフォルトの辞書を使用
+        face_seed: "{{ face_seed | default(43199017) }}"
+        face_style: "{{ face_style | default('ningli.v1') }}"
+        face_lock: true          # 下流でのチェック用、上書き不可
+    say: ""
+    goto: ENTRY                 # 既存エントリを維持
+
+
+name: module_pro
+type: module
+version: 1
+
+description: |
+  ヒロイン単独撮影（直線フロー）。
+  目的：常に3行の必須メニューを表示；Qキーで必ず画像生成；angles.jsonは変更しない。
+  このモジュールはphrases.jsonの文言のみ参照し、内部プロンプトはここで設定してUIを汚さない。
+
+state:
+  angle: null        # 0~9；0=前回を使用/スキップ
+  bg: null           # A～E または地名文字列
+  ready: true        # 多重クリック防止；falseは生成中を意味する
+
+variables:
+  # 角度 → 内部プロンプト（ユーザーには非表示）
+  angle_prompts:
+    "0": ""
+    "1": "カメラ左に45°回転",
+    "2": "カメラ左に90°回転",
+    "3": "カメラ左に135°回転（さらに側面寄り）",
+    "4": "カメラ背面（約180°）",
+    "5": "カメラ右に45°回転",
+    "6": "カメラ右に90°回転",
+    "7": "カメラ右に135°回転（さらに側面寄り）",
+    "8": "低アングル（見上げ）",
+    "9": "高アングル（見下ろし）"
+  # 基本スタイルガードレール：カメラマン写り込み禁止、手持ちカメラ禁止など
+  guardrails: >
+    clean portrait framing, no photographer or camera visible in frame,
+    natural daylight color, realistic skin tones, depth of field, bokeh background
+
+entry:
+  say:
+    - "{ui.first_shot_hint}"
+    - "{angles.menu_title}："0": "スキップ",
+      "1": "カメラ左45°",
+      "2": "カメラ左90°",
+      "3": "カメラ左135°（さらに側面寄り）",
+      "4": "カメラ背面（約180°）",
+      "5": "カメラ右45°",
+      "6": "カメラ右90°",
+      "7": "カメラ右135°（さらに側面寄り）",
+      "8": "低アングル（見上げ）",
+      "9": "高アングル（見下ろし）"
+    - "{backgrounds_ui.menu_title}\n{backgrounds_ui.prefix}\n{backgrounds_ui.fallback_note}"
+
+routes:
+  # 角度 / 背景メニュー
+  - when: "input in ['1','２', '角度', '選角度']"
+    goto: angle_menu
+  - when: "input in ['2','２', '背景', '選背景']"
+    goto: bg_menu
+  # 角度選択（0~9）
+  - when: "input matches '^[0-9]$'"
+    set:
+      angle: "{{ input }}"
+    say:
+      - "角度設定完了～ {{ angles.labels[input] }}。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  # 背景選択（A～E または地名）
+  - when: "input matches '^[A-Ea-e0]$'"
+    set:
+      bg: "{{ input | upper }}"
+    say:
+      - "背景設定完了～ {{ input | upper }}。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  - when: "input matches '^[^0-9A-Ea-e].{0,40}$'"
+    set:
+      bg: "{{ input }}"
+    say:
+      - "背景設定完了～「{{ input }}」。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  # シャッター
+  - when: "input in ['q','Q','快門','拍照']"
+    goto: shutter
+
+blocks:
+  angle_menu:
+    say:
+      - "{angles.menu_title}："
+      - ""0": "スキップ",
+      "1": "カメラ左45°",
+      "2": "カメラ左90°",
+      "3": "カメラ左135°（さらに側面寄り）",
+      "4": "カメラ背面（約180°）",
+      "5": "カメラ右45°",
+      "6": "カメラ右90°",
+      "7": "カメラ右135°（さらに側面寄り）",
+      "8": "低アングル（見上げ）",
+      "9": "高アングル（見下ろし）"
+      - "👉 0～9を入力して角度を選択、またはQで撮影"
+    return: true
+
+  bg_menu:
+    say:
+      - "{backgrounds_ui.menu_title}"
+      - "{backgrounds_ui.prefix}"
+      - "{backgrounds_ui.fallback_note}"
+      - "👉 A～Eを入力して背景を選択、または地名を入力、またはQで撮影"
+    return: true
+
+  wait_shutter:
+    say:
+      - "{ui.direct_q_hint}"
+    return: true
+
+  shutter:
+    guard:
+      - "state.ready == true"
+    set:
+      ready: false
+    do:
+      # ここで既存の画像生成関数と連携（例）：generate_image(prompt=...)
+      - call: generate_image
+        with:
+          prompt: |
+            {{ variables.guardrails }}.
+            {{ variables.angle_prompts[state.angle or '0'] }}
+            {{ 'background at ' + state.bg if state.bg else '' }}
+    composition:
+            # ✅ 比率固定：60% 縦長 1024x1536；30% 横長 1536x1024（1:1は禁止）
+            output_size: "{{ '1024x1536' if random() < 0.6 else '1536x1024' }}"
+            # ✅ プロンプト最適化：自由なポーズ、遠くを見る、同じシーンで異なるカメラ位置、正方形禁止
+            camera_prompt: >
+              {{ random(@kb.rules.ca) }}；
+              自由なポージング、自然なインタラクション、同じシーン内で異なるカメラ位置、カメラの微移動（前後／左右／上下に軽く変化）；
+              主人公は遠くを見るか、レンズを外してもOK、表情は自然に；
+              正方形構図は禁止（no square / no 1:1）；
+              縦横比はportraitまたはlandscapeを維持、1:1は避ける；
+              映像のストーリーテリング性を保ち、重複ショットを避け、空間の一貫性を維持。
+     background_location:
+            mode: select_from_pool
+            region_hint: Taiwan
+            require_match: true
+            fallback_pool: "@kb.backgrounds.pool"
+            randomize: true          
+    say:
+      - "{ui.after_shot_hint}"
+    set:
+      ready: true
+    return: true
