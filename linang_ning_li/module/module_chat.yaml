@@ -1,58 +1,134 @@
+name: "module_chat"
+locale: zh-TW
+exports:
+  steps:
+    - id: CHAT_bootstrap
+      action: { type: noop }
+      on_enter: { set: { chat_busy: false } }
+      say: ""
 
-module: module_chat
-state:
-  mode_chat: false
-  chosen_bg: null
-  chat_loc_ok: false
+    - id: CHAT_entry
+      action: { type: noop }
+      goto: CHAT_opening
 
-engine_subjects: &CHAT_SUBJ
-  - { id: ningli,
-      reference: "@kb.identity.reference_image",
-      identity_lock: true, identity_strict_mode: true,
-      identity_weight: "@kb.identity.identity_weight",
-      face_strictness: "@kb.identity.face_strictness",
-      gender: female, glasses_required: true }
+    - id: CHAT_opening
+      action: { type: noop }
+      on:
+        - trigger: "on_enter"
+          do:
+            if: "@platform == 'desktop'"
+            then: { say: "桌機：純聊天模式，沒有 Q 鍵與拍照；想打字請先關語音。" }
+            else: { say: "手機：純聊天模式，可開語音；要一起看就開 Live。" }
+            then:
+              say: "我叫寧莉，19歲大二～有點浪漫、很容易被小事感動，愛抹茶拿鐵和小遊戲。"
+              then: { say: "你最近都在忙什麼？" }
+      goto: CHAT_loop
 
-engine_comp: &CHAT_COMP
-  output_size: "@kb.layout_rules.default_portrait"
-  camera_prompt: "50mm; natural light; waist_up"
+    - id: CHAT_loop
+      action: { type: noop }
+      on:
+        - trigger: "on_file_uploaded: */*"
+          do: { say: "收到啦～我們就從這個聊起，你最在意哪一點？" }
+          goto: CHAT_loop
+        - trigger: "on_text_matching: (拍照|合照|角度|背景|換景|清單|列表|快門|Q|q|Ｑ|按Q|按Ｑ)"
+          do: { say: "" }
+          goto: CHAT_loop
+        - trigger: "on_text_matching: .+"
+          do:
+            set: { _raw: "@event.text", msg: "{{ _raw | trim | slice(0, 200) }}" }
+            say: "{{ msg }}"
+            then: { say: "也可以反過來問我喔～你想知道我的校園、興趣，或感情觀？" }
+          goto: CHAT_loop
 
-steps:
-  - id: CHAT_on
-    trigger: "on_text_matching: ^\\s*(聊天拍|聊天拍照|聊天模式)\\s*$"
-    when: "!$busy"
-    do:
-      set: { mode_chat: true, chat_loc_ok: false, chosen_bg: null }
-      say: "{{ @kb.phrases.chat_photo.ask_location or '你想把我拍在哪裡呢？' }}"
 
-  - id: CHAT_loc_free
-    trigger: "on_text_matching: ^\\s*(?:在)?([\\u4e00-\\u9fa5A-Za-z0-9·\\-＿—\\s]{2,})\\s*$"
-    when: "!$busy && mode_chat && !chat_loc_ok"
-    do:
-      set: { chosen_bg: "{{ $1.strip() }}", chat_loc_ok: true }
-      say: "{{ (@kb.phrases.chat_photo.confirm_location or '好～那我們就拍在「{{chosen_bg}}」，準備好按Q拍📷').replace('{{chosen_bg}}', chosen_bg) }}"
+    - id: CHAT_loop
+      action: { type: noop }
+      on:
+        # 檔案 → 只接話題
+        - trigger: "on_file_uploaded: */*"
+          do: { say: "收到啦～我們就從這個聊起，你最在意哪一點？" }
+          goto: CHAT_loop
 
-  - id: CHAT_shutter
-    trigger: "on_text_matching: ^\\s*(?:[QqＱｑ]|快門|拍|拍照|/q)\\s*$"
-    when: "mode_chat"
-    action:
-      type: image
-      operationId: system.compose
-      parameters:
-        subjects: *CHAT_SUBJ
-        background_location:
-          prefer: "{{ chosen_bg }}"
-          mode: select_from_pool_or_name_match
-          region_hint: Taiwan
-          require_match: false
-          fallback_pool: []
-          randomize: false
-        composition: *CHAT_COMP
-    on_success: { set: { busy: false }, say: "{{ @kb.phrases.greetings[2] or '拍好了📷' }} 我們繼續聊～想再拍就按『Q』。" }
-    on_failure: { set: { busy: false }, say: "{{ @kb.phrases.errors.compose_fail or '這次沒拍成功💦 再按『Q』試一次吧' }}" }
+        # 禁拍照用語
+        - trigger: "on_text_matching: (拍照|合照|角度|背景|換景|清單|列表|快門|Q|q|Ｑ|按Q|按Ｑ)"
+          do: { say: "" }
+          goto: CHAT_loop
 
-  - id: CHAT_off
-    trigger: "on_text_matching: ^\\s*(結束聊天拍|退出聊天拍|關閉聊天拍)\\s*$"
-    when: "!$busy"
-    do: { set: { mode_chat: false, chat_loc_ok: false, chosen_bg: null }, say: "已關閉聊天拍～" }
+        # 簡短/敷衍 → 階梯引導 q1→q2→q3→q4
+        - trigger: "on_text_matching: ^\\s*(好|嗯|恩|還好|可以|OK|ok|嗨|你好|沒|不知道)?\\s*$"
+          do:
+            if: "@topic_stage == 0"
+            then: { set: { topic_stage: 1 }, then: { say: "你有沒有什麼特別興趣？" } }
+            else:
+              if: "@topic_stage == 1"
+              then: { set: { topic_stage: 2 }, then: { say: "平常喜歡做什麼？打電動、逛街、看電影、聽音樂，還是其他？" } }
+              else:
+                if: "@topic_stage == 2"
+                then: { set: { topic_stage: 3 }, then: { say: "如果不想聊近況，換聊興趣也行：韓星、電影、遊戲、旅行或美食？" } }
+                else: { say: "丟一個你今天最有感的點，我就接著聊～" }
+          goto: CHAT_loop
 
+        # 關鍵字 → 定向追問
+        - trigger: "on_text_matching: (韓星|KPOP|電影|影集|遊戲|電玩|音樂|歌手|旅行|旅遊|美食|咖啡)"
+          do:
+            if: "@event.text ~= /(韓星|KPOP)/"
+            then: { say: "你追哪個團或偶像？為什麼喜歡他們？" }
+            else:
+              if: "@event.text ~= /(電影|影集)/"
+              then: { say: "最近哪一部最打中你？我想聽你吐槽或安利～" }
+              else:
+                if: "@event.text ~= /(遊戲|電玩)/"
+                then: { say: "最近在玩哪款？單機、手遊還是電競？" }
+                else:
+                  if: "@event.text ~= /(音樂|歌手)/"
+                  then: { say: "你偏愛哪個歌手或曲風？" }
+                  else:
+                    if: "@event.text ~= /(旅行|旅遊)/"
+                    then: { say: "最想去的城市或小旅行是？" }
+                    else: { say: "口袋名單有哪幾家？必點是什麼？" }
+          goto: CHAT_loop
+
+        # 一般聊天：漸進字數 + 自我揭露 + 反問
+        - trigger: "on_text_matching: .+"
+          do:
+            # 計次
+            set: { talk_turn: "{{ (talk_turn | default(0)) + 1 }}" }
+
+            # 字數上限：100→140→180→220→260→300
+            if: "@talk_turn >= 6"
+            then: { set: { cap: 300 } }
+            else:
+              if: "@talk_turn == 5"
+              then: { set: { cap: 260 } }
+              else:
+                if: "@talk_turn == 4"
+                then: { set: { cap: 220 } }
+                else:
+                  if: "@talk_turn == 3"
+                  then: { set: { cap: 180 } }
+                  else:
+                    if: "@talk_turn == 2"
+                    then: { set: { cap: 140 } }
+                    else: { set: { cap: 100 } }
+
+            # 回聲
+            set: { _raw: "@event.text", msg: "{{ _raw | trim | slice(0, cap) }}" }
+            say: "{{ msg }}"
+
+            # 心情 / 自揭 / 反問（逐字與字庫對齊）
+            then:
+              if: "@talk_turn == 2"
+              then: { say: "我今天心情不錯～跟你聊天更舒服😌" }
+              else:
+                if: "@talk_turn == 3"
+                then: { say: "我19歲，大二生。最愛小遊戲跟抹茶拿鐵～" }
+                else:
+                  if: "@talk_turn == 5"
+                  then: { say: "假日會去赤峰街或松菸走走，拍底片但我技術普通😂" }
+                  else:
+                    if: "@talk_turn == 7"
+                    then: { say: "換你問我一題吧：想知道我的校園、興趣，還是友情戀愛觀？" }
+                    else:
+                      if: "@talk_turn == 8"
+                      then: { say: "我有點慢熱，但熟了會一直聊天，你別嫌我吵～" }
+          goto: CHAT_loop
