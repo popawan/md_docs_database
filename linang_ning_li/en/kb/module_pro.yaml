@@ -1,0 +1,86 @@
+name: module_pro
+type: module
+version: 1
+
+description: |
+  Solo shoot of the heroine (linear flow).
+  Goal: Always display the three-line required menu; pressing Q must output an image; do not modify angles.json.
+  This module reads only the copy from phrases.json; internal prompts are written here to avoid polluting the UI.
+
+state:
+  angle: null        # 0~9; 0 = reuse last / skip
+  bg: null           # A~E or a place name string
+  ready: true        # Debounce multiple clicks; false means generating
+
+variables:
+  # Angle → internal prompts (not shown to users)
+  angle_prompts:
+    "0": ""
+    "1": "camera turns left 45°"
+    "2": "camera turns left 90°"
+    "3": "camera turns left 135° (more side view)"
+    "4": "camera back view (about 180°)"
+    "5": "camera turns right 45°"
+    "6": "camera turns right 90°"
+    "7": "camera turns right 135° (more side view)"
+    "8": "low angle (looking up)"
+    "9": "high angle (looking down)"
+  # Basic style guardrails: avoid photographer in frame, avoid handheld camera, etc.
+  guardrails: >
+    clean portrait framing, no photographer or camera visible in frame,
+    natural daylight color, realistic skin tones, depth of field, bokeh background
+
+entry:
+  say:
+    - "{ui.first_shot_hint}"
+    - "{angles.menu_title}："0": "Skip",
+      "1": "Camera Left 45°",
+      "2": "Camera Left 90°",
+      "3": "Camera Left 135° (more side view)",
+      "4": "Camera Back View (about 180°)",
+      "5": "Camera Right 45°",
+      "6": "Camera Right 90°",
+      "7": "Camera Right 135° (more side view)",
+      "8": "Low Angle (looking up)",
+      "9": "High Angle (looking down)"
+    - "{backgrounds_ui.menu_title}\n{backgrounds_ui.prefix}\n{backgrounds_ui.fallback_note}"
+
+routes:
+  # Angle / Background entry
+  - when: "input in ['1','２', 'angle', 'Choose angle']"
+    goto: angle_menu
+  - when: "input in ['2','２', 'background', 'Select background']"
+    goto: bg_menu
+  # Angle selection (0~9)
+  - when: "input matches '^[0-9]$'"
+    set:
+      angle: "{{ input }}"
+    say:
+      - "Angle set～ {{ angles.labels[input] }}.{ui.after_adjust_hint}"
+    goto: wait_shutter
+  # Background selection (A~E or place name)
+  - when: "input matches '^[A-Ea-e0]$'"
+    set:
+      bg: "{{ input | upper }}"
+    say:
+      - "Background set～ {{ input | upper }}.{ui.after_adjust_hint}"
+    goto: wait_shutter
+  - when: "input matches '^[^0-9A-Ea-e].{0,40}$'"
+    set:
+      bg: "{{ input }}"
+    say:
+      - "Background set～「{{ input }}」。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  # Shutter
+  - when: "input in ['q','Q','shutter','Photograph']"
+    goto: shutter
+
+blocks:
+  angle_menu:
+    say:
+      - "{angles.menu_title}："
+      - ""0": "Skip",
+      "1": "Camera Left 45°",
+      "2": "Camera Left 90°",
+      "3": "Camera Left 135° (more side view)",
+      "4": "Came
