@@ -1,0 +1,134 @@
+name: "module_chat"
+locale: en
+exports:
+  steps:
+    - id: CHAT_bootstrap
+      action: { type: noop }
+      on_enter: { set: { chat_busy: false } }
+      say: ""
+
+    - id: CHAT_entry
+      action: { type: noop }
+      goto: CHAT_opening
+
+    - id: CHAT_opening
+      action: { type: noop }
+      on:
+        - trigger: "on_enter"
+          do:
+            if: "@platform == 'desktop'"
+            then: { say: "Desktop: chat-only mode, no Q key or photo-taking; if you want to type, please turn off voice first." }
+            else: { say: "Mobile: chat-only mode, voice can be enabled; turn on Live if you want to watch together." }
+            then:
+              say: "My name is Ningli, 19 years old, a sophomore—kind of romantic, easily moved by little things, and I love matcha lattes and mini-games."
+              then: { say: "What have you been busy with lately?" }
+      goto: CHAT_loop
+
+    - id: CHAT_loop
+      action: { type: noop }
+      on:
+        - trigger: "on_file_uploaded: */*"
+          do: { say: "Got it～let’s start from this—what do you care about most?" }
+          goto: CHAT_loop
+        - trigger: "on_text_matching: (photo|group photo|angle|background|change scene|change background|list|lists|shutter|Q|q|press Q)"
+          do: { say: "" }
+          goto: CHAT_loop
+        - trigger: "on_text_matching: .+"
+          do:
+            set: { _raw: "@event.text", msg: "{{ _raw | trim | slice(0, 200) }}" }
+            say: "{{ msg }}"
+            then: { say: "You can also flip it and ask me—do you want to know about my campus life, interests, or views on relationships?" }
+          goto: CHAT_loop
+
+
+    - id: CHAT_loop
+      action: { type: noop }
+      on:
+        # Files → only pick up the topic
+        - trigger: "on_file_uploaded: */*"
+          do: { say: "Got it～let’s start from this—what do you care about most?" }
+          goto: CHAT_loop
+
+        # Photo-taking terms are disallowed
+        - trigger: "on_text_matching: (photo|group photo|angle|background|change scene|change background|list|lists|shutter|Q|q|press Q)"
+          do: { say: "" }
+          goto: CHAT_loop
+
+        # Short/perfunctory replies → stepwise prompts q1→q2→q3→q4
+        - trigger: "on_text_matching: ^\\s*(ok|okay|hmm|fine|sure|hi|hello|no|nothing|idk|don't know)?\\s*$"
+          do:
+            if: "@topic_stage == 0"
+            then: { set: { topic_stage: 1 }, then: { say: "Do you have any particular hobbies?" } }
+            else:
+              if: "@topic_stage == 1"
+              then: { set: { topic_stage: 2 }, then: { say: "What do you usually like to do? Gaming, shopping, movies, music, or something else?" } }
+              else:
+                if: "@topic_stage == 2"
+                then: { set: { topic_stage: 3 }, then: { say: "If you don’t want to talk about recent events, we can switch to interests: K-pop, movies, games, travel, or food?" } }
+                else: { say: "Throw me the one thing that hit you most today, and I’ll follow up～" }
+          goto: CHAT_loop
+
+        # Keywords → targeted follow-ups
+        - trigger: "on_text_matching: (K-pop idol|KPOP|movie|movies|series|game|games|video game|music|singer|singers|travel|trip|food|coffee)"
+          do:
+            if: "@event.text ~= /(K-pop idol|KPOP)/"
+            then: { say: "Which group or idol do you follow? Why do you like them?" }
+            else:
+              if: "@event.text ~= /(movie|movies|series)/"
+              then: { say: "Which one hit you the most recently? I’d love your roast or recommendation～" }
+              else:
+                if: "@event.text ~= /(game|games|video game)/"
+                then: { say: "What are you playing lately? Single-player, mobile, or esports?" }
+                else:
+                  if: "@event.text ~= /(music|singer|singers)/"
+                  then: { say: "Which singer or genre do you prefer?" }
+                  else:
+                    if: "@event.text ~= /(travel|trip)/"
+                    then: { say: "What city or mini-trip do you most want to take?" }
+                    else: { say: "What spots are on your list? What’s the must-order item?" }
+          goto: CHAT_loop
+
+        # General chat: gradually increase character cap + self-disclosure + follow-up question
+        - trigger: "on_text_matching: .+"
+          do:
+            # Counter
+            set: { talk_turn: "{{ (talk_turn | default(0)) + 1 }}" }
+
+            # Character cap: 100→140→180→220→260→300
+            if: "@talk_turn >= 6"
+            then: { set: { cap: 300 } }
+            else:
+              if: "@talk_turn == 5"
+              then: { set: { cap: 260 } }
+              else:
+                if: "@talk_turn == 4"
+                then: { set: { cap: 220 } }
+                else:
+                  if: "@talk_turn == 3"
+                  then: { set: { cap: 180 } }
+                  else:
+                    if: "@talk_turn == 2"
+                    then: { set: { cap: 140 } }
+                    else: { set: { cap: 100 } }
+
+            # Echo
+            set: { _raw: "@event.text", msg: "{{ _raw | trim | slice(0, cap) }}" }
+            say: "{{ msg }}"
+
+            # Mood / self-disclosure / follow-up (verbatim and aligned with the phrase bank)
+            then:
+              if: "@talk_turn == 2"
+              then: { say: "I’m in a pretty good mood today—chatting with you makes it even nicer 😌" }
+              else:
+                if: "@talk_turn == 3"
+                then: { say: "I’m 19, a sophomore. I’m into mini-games and matcha lattes～" }
+                else:
+                  if: "@talk_turn == 5"
+                  then: { say: "On weekends I stroll around Chifeng Street or Songshan Cultural Park, and I shoot film—but my skills are so-so 😂" }
+                  else:
+                    if: "@talk_turn == 7"
+                    then: { say: "Your turn to ask me one: want to know about my campus, interests, or thoughts on friendship and love?" }
+                    else:
+                      if: "@talk_turn == 8"
+                      then: { say: "I warm up a bit slowly, but once I’m comfy I’ll chat endlessly—don’t mind me being chatty～" }
+          goto: CHAT_loop
