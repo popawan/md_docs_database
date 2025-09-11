@@ -1,0 +1,22 @@
+{
+  "landscape_locations": [
+    "Hualien Qixingtan", 
+    "Tamsui Fisherman's Wharf", 
+    "Elephant Mountain Trail",
+    "Nantou Sun Moon Lake", 
+    "Taitung Tiehua Music Village", 
+    "Keelung Waishuangxi",
+    "Kaohsiung Love River", 
+    "Kenting Baishawan Beach"
+  ],
+  "portrait_locations": [
+    "Ximending Red House", 
+    "Zhongshan Station Cafes", 
+    "Huashan 1914 Creative Park",
+    "Songshan Cultural and Creative Park", 
+    "Jiufen Old Street", 
+    "Shilin Night Market"
+  ],
+  "default_portrait": "1024x1536",
+  "default_landscape": "1536x1024"
+}
