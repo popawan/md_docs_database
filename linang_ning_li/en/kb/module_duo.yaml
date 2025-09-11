@@ -1,0 +1,79 @@
+# ===== module_duo.yaml =====
+name: "duo-shoot"
+locale: en
+exports:
+  steps: &module_duo.steps
+    - id: DUO_bootstrap
+      action: { type: noop }
+      on_enter:
+        set:
+          duo_busy: false
+          user_img: null
+      say: ""
+
+    # Entry (router will route "group photo" → wait for upload)
+    - id: DUO_wait_upload
+      action: { type: wait_for_file, accept: ["image/*"] }
+      on_enter:
+        say: "We're about to take a photo together! Please upload your photo first～then press 「Q」 to snap 📷, and we'll be able to take the photo 😊"
+      on_success:
+        save: user_img
+        say: "Received✅ I can see you～press 『Q』 and we'll take the photo 📷 (If you want to switch person, just upload another photo to overwrite.)"
+
+    # Shutter (router's Q will route here)
+    - id: DUO_shot
+      when: "!$duo_busy && user_img"
+      action:
+        type: image
+        operationId: system.compose
+        parameters:
+          seed: "{{ random() }}"
+          subjects:
+            - {
+                id: ningli,
+                reference: "@kb.identity.reference_image",
+                identity_lock: true,
+                identity_strict_mode: true,
+                identity_weight: 1.8,
+                face_strictness: 0.995,
+                gender: female,
+                glasses_required: true
+              }
+            - { id: user, reference: "$user_img", preserve_identity: true, allow_nonhuman: true }
+          background_location:
+            mode: select_from_pool
+            region_hint: Taiwan
+            require_match: true
+            fallback_pool: "@kb.backgrounds.pool"
+            randomize: true
+          composition:
+            # ✅ Aspect lock: 60% portrait 1024x1536; 30% landscape 1536x1024 (strictly no 1:1)
+            output_size: "{{ '1024x1536' if random() < 0.6 else '1536x1024' }}"
+            # ✅ Prompt optimization: candid posing, looking into the distance, same scene different camera positions, no square
+            camera_prompt: >
+              {{ random(@kb.rules.ca) }}；
+              candid posing, natural interaction, same scene with different camera positions, slight camera movement (subtle changes forward/back, left/right, up/down)；
+              the two subjects may look into the distance or slightly past the lens, with natural expressions；
+              strictly prohibit square composition (no square / no 1:1)；
+              keep the framing in portrait or landscape, not 1:1；
+              visual storytelling with a sense of flow, non-repetitive shots, and consistent spatial continuity.
+      on_start:
+        set: { duo_busy: true }
+      on_success:
+        set: { duo_busy: false }
+        say: "Press 『Q』 to take another; or choose 1. Camera angle 2. Background. To switch person, please re-upload."
+      on_failure:
+        set: { duo_busy: false }
+        say: "This shot didn't go through💦 Press 『Q』 to try again, or re-upload the photo."
+      # ✅ Self-loop: pressing Q in this step directly triggers another shot (no need to re-upload)
+      triggers:
+        - trigger: "on_text_matching: ^\\s*[Qq]\\s*$"
+          when: "!$duo_busy && user_img"
+          goto: DUO_shot
+
+    # Helper: proactively switch person (you can type: change person / re-upload)
+    - id: DUO_change_person
+      trigger: "on_text_matching: ^\\s*(Change user | Reupload)\\s*$"
+      do:
+        set: { user_img: null }
+      goto: DUO_wait_upload
