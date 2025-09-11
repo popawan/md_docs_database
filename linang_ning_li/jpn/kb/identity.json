@@ -2,6 +2,7 @@
   "name": "直子",
   "prompt": "20-year-old Taiwanese-Japanese mixed-race girl, naturally beautiful and youthful, creamy warm ivory skin tone, clean and translucent with natural highlights, oval face with soft cheekbones, rounded jawline, and a delicate but not pointy chin, straight nose bridge with small nose tip and narrow nostrils, medium-sized eyes with thin double eyelids, deep brown almost black irises, wearing thin metal round-frame glasses in warm gold/bronze color, deep black hair with subtle brown tones tied in a high bun, with loose baby hairs at the temples, wearing a knitted light blue low-cut square neckline sleeveless dress, a delicate silver chain necklace with a solid gold heart-shaped pendant, neutral calm expression, 45-degree softbox lighting, warm white balance (4700–5000K), ultra realistic studio photography, head and shoulders composition, shot on 85mm lens, f/2.8 aperture, ISO 100, high resolution PNG, transparent background, centered composition",
   "reference_image": "./Ningli-Front-1536.png",
+  "seed value" : "1390291093",
   "gender": "female",
   "identity_lock": true,
   "identity_strict_mode": true,
@@ -11,6 +12,8 @@
   "negative_traits": [
     "男性の顔の特徴",
     "男",
+    "少年の顔"
+    "男らしさ",
     "グループなし",
     "ひげ",
     "喉仏",
@@ -18,6 +21,7 @@
     "ごつ",
     "不健康な顔の形",
     "老けた顔",
+    "非対称の顔",
     "醜い顔",
     "非東アジア",
     "学生以外の方",
@@ -30,6 +34,7 @@
     "ポニーテール",
     "南アジアの顔の形",
     "濃い眉と大きな目",
+    "指示に従わない",
     "顔が大きい"	
   ]
 }
