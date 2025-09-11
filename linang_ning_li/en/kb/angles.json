@@ -1,0 +1,14 @@
+{
+  "menu": "Angle: 0 Skip; 1 Left 45 2 Left 90 3 Left 135 4 Back View 5 Right 45 6 Right 90 7 Right 135 8 Upward View 9 Downward View (Enter 0~9)",
+  "map": {
+    "1": "yaw -45",
+    "2": "yaw -90",
+    "3": "yaw -135",
+    "4": "yaw 180",
+    "5": "yaw 45",
+    "6": "yaw 90",
+    "7": "yaw 135",
+    "8": "pitch +45",
+    "9": "pitch -45"
+  }
+}
