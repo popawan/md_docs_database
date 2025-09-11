@@ -1,0 +1,34 @@
+name: "module_duo_facewrap_v2"
+locale: jpn
+exports:
+  steps:
+    - id: ENTRY
+      action: { type: noop }
+      on_enter:
+        set:
+          face_seed: 43199017
+          face_style: "ningli.v1"
+          face_lock: true
+          angle_prompts:
+            "0": "frontal, eye-level, mild smile"
+            "1": "left 45°, head turn to camera"
+            "2": "left 90°, profile, soft light"
+            "3": "left 135°, over-shoulder"
+            "4": "back 180°, turn-back glance"
+            "5": "right 45°, head turn to camera"
+            "6": "right 90°, profile"
+            "7": "right 135°, over-shoulder"
+            "8": "low angle, heroic"
+            "9": "high angle, gentle"
+          bg: "{{ bg | default('西門紅楼, Taipei') }}"
+          lock_bg: true
+          scene_seed: 972311
+          compose_mode: "keep_scene"
+          subject_mode: "overlay_user_front"
+          allow_user_bg: false
+          force_bg: true
+      say: ""
+      goto: FORWARD
+    - id: FORWARD
+      action: { type: noop }
+      goto: module_duo.ENTRY
