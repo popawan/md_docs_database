@@ -1,0 +1,155 @@
+# ===== module_duo.yaml =====
+name: "duo-shot"
+locale: kor
+exports:
+  steps: &module_duo.steps
+    - id: DUO_bootstrap
+      action: { type: noop }
+      on_enter:
+        set:
+          duo_busy: false
+          user_img: null
+      say: ""
+
+    # 진입(라우터가 '투샷'으로 유도 → 업로드 대기)
+    - id: DUO_wait_upload
+      action: { type: wait_for_file, accept: ["image/*"] }
+      on_enter:
+        say: "함께 투샷을 찍자! 먼저 너의 사진을 업로드해 줘～ 그다음 「Q」로 셔터📷, 바로 같이 찍을 수 있어😊"
+      on_success:
+        save: user_img
+        say: "받았어✅ 확인됐어～ 『Q』로 함께 촬영📷(사람을 바꾸고 싶다면 새 사진을 업로드해서 교체해 줘)"
+
+state:
+  angle: null        # 0~9; 0=이전 값을 재사용/스킵
+  bg: null           # A～E 또는 지명 문자열
+  ready: true        # 연타 방지; false는 이미지 생성 중
+
+variables:
+  # 각도 → 내부 프롬프트(사용자에게는 표시하지 않음)
+  angle_prompts:
+    "0": ""
+    "1": "카메라를 왼쪽으로 45° 회전",
+    "2": "카메라를 왼쪽으로 90° 회전",
+    "3": "카메라를 왼쪽으로 135° 회전(더 측면)",
+    "4": "카메라 배면(약 180°)",
+    "5": "카메라를 오른쪽으로 45° 회전",
+    "6": "카메라를 오른쪽으로 90° 회전",
+    "7": "카메라를 오른쪽으로 135° 회전(더 측면)",
+    "8": "로우 앵글(올려다보기)",
+    "9": "하이 앵글(내려다보기)"
+  # 기본 스타일 가드레일: 촬영자나 카메라의 비침을 피하고, 핸드헬드 카메라도 피함
+  guardrails: >
+    clean portrait framing, no photographer or camera visible in frame,
+    natural daylight color, realistic skin tones, depth of field, bokeh background
+
+entry:
+  say:
+    - "{ui.first_shot_hint}"
+    - "{angles.menu_title}："0": "스킵",
+      "1": "카메라 왼쪽45°",
+      "2": "카메라 왼쪽90°",
+      "3": "카메라 왼쪽135°(더 측면)",
+      "4": "카메라 배면(약180°)",
+      "5": "카메라 오른쪽45°",
+      "6": "카메라 오른쪽90°",
+      "7": "카메라 오른쪽135°(더 측면)",
+      "8": "로우 앵글(올려다보기)",
+      "9": "하이 앵글(내려다보기)"
+    - "{backgrounds_ui.menu_title}\n{backgrounds_ui.prefix}\n{backgrounds_ui.fallback_note}"
+
+routes:
+  # 각도 / 배경의 입구
+  - when: "input in ['1','２', '각도', '각도를 선택']"
+    goto: angle_menu
+  - when: "input in ['2','２', '배경', '배경을 선택']"
+    goto: bg_menu
+  # 각도 선택(0~9)
+  - when: "input matches '^[0-9]$'"
+    set:
+      angle: "{{ input }}"
+    say:
+      - "각도를 설정했어～ {{ angles.labels[input] }}. {ui.after_adjust_hint}"
+    goto: wait_shutter
+  # 배경 선택(A～E 또는 지명)
+  - when: "input matches '^[A-Ea-e0]$'"
+    set:
+      bg: "{{ input | upper }}"
+    say:
+      - "배경을 설정했어～ {{ input | upper }}. {ui.after_adjust_hint}"
+    goto: wait_shutter
+  - when: "input matches '^[^0-9A-Ea-e].{0,40}$'"
+    set:
+      bg: "{{ input }}"
+    say:
+      - "배경을 설정했어～「{{ input }}」。{ui.after_adjust_hint}"
+    goto: wait_shutter
+  # 셔터
+  - when: "input in ['q','Q','셔터','촬영']"
+    goto: shutter
+
+blocks:
+  angle_menu:
+    say:
+      - "{angles.menu_title}："
+      - ""0": "스킵",
+      "1": "카메라 왼쪽45°",
+      "2": "카메라 왼쪽90°",
+      "3": "카메라 왼쪽135°(더 측면)",
+      "4": "카메라 배면(약180°)",
+      "5": "카메라 오른쪽45°",
+      "6": "카메라 오른쪽90°",
+      "7": "카메라 오른쪽135°(더 측면)",
+      "8": "로우 앵글(올려다보기)",
+      "9": "하이 앵글(내려다보기)"
+      - "👉 0～9를 입력해 각도를 선택하거나, Q를 눌러 촬영"
+    return: true
+
+  bg_menu:
+    say:
+      - "{backgrounds_ui.menu_title}"
+      - "{backgrounds_ui.prefix}"
+      - "{backgrounds_ui.fallback_note}"
+      - "👉 A～E를 입력해 배경을 선택하거나, 지명을 입력하거나, Q를 눌러 촬영"
+    return: true
+
+  wait_shutter:
+    say:
+      - "{ui.direct_q_hint}"
+    return: true
+
+  shutter:
+    guard:
+      - "state.ready == true"
+    set:
+      ready: false
+    do:
+      # 여기서 기존의 이미지 생성 함수에 연결(예): generate_image(prompt=...)
+      - call: generate_image
+        with:
+          prompt: |
+            {{ variables.guardrails }}.
+            {{ variables.angle_prompts[state.angle or '0'] }}
+            {{ 'background at ' + state.bg if state.bg else '' }}
+    composition:
+            # ✅ 비율 고정: 60% 세로 1024x1536; 30% 가로 1536x1024(1:1 금지)
+            output_size: "{{ '1024x1536' if random() < 0.6 else '1536x1024' }}"
+            # ✅ 프롬프트 최적화: 자유로운 포즈, 먼 곳 응시, 동일 장면 내 카메라 위치 변경, 정사각형 금지, 남성이 되는 것 금지
+            camera_prompt: >
+              {{ random(@kb.rules.ca) }};
+              자유로운 포징, 자연스러운 상호작용, 동일한 장면에서 다른 카메라 위치, 카메라의 미세 이동(전후/좌우/상하의 약간 변화);
+              주인공은 먼 곳을 보거나 렌즈에서 약간 시선을 벗어나도 좋음. 표정은 자연스럽게;
+              정사각형 구도 금지(no square / no 1:1);
+              구도는 portrait 또는 landscape를 유지하고, 1:1은 불가;
+              영상의 스토리성과 유동감, 중복되지 않는 화면 구성, 공간의 일관성 유지.
+     background_location:
+            mode: select_from_pool
+            region_hint: Taiwan
+            require_match: true
+            fallback_pool: "@kb.backgrounds.pool"
+            randomize: true          
+    say:
+      - "{ui.after_shot_hint}"
+    set:
+      ready: true
+    return: true
