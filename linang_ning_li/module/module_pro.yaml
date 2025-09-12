@@ -30,20 +30,22 @@ variables:
     clean portrait framing, no photographer or camera visible in frame,
     natural daylight color, realistic skin tones, depth of field, bokeh background
 
-entry:
-  say:
-    - "{ui.first_shot_hint}"
-    - "{angles.menu_title}："0": "跳過",
-      "1": "鏡頭左45°",
-      "2": "鏡頭左90°",
-      "3": "鏡頭左135°（更偏側視）",
-      "4": "鏡頭背向（約180°）",
-      "5": "鏡頭右45°",
-      "6": "鏡頭右90°",
-      "7": "鏡頭右135°（更偏側視）",
-      "8": "低機位（仰視）",
-      "9": "高機位（俯視）"
-    - "{backgrounds_ui.menu_title}\n{backgrounds_ui.prefix}\n{backgrounds_ui.fallback_note}"
+  entry:
+    say:
+      - "{ui.first_shot_hint}"
+      - >-
+          {angles.menu_title}：
+          0. 跳過 |
+          1. 鏡頭左45° |
+          2. 鏡頭左90° |
+          3. 鏡頭左135°（更偏側視） |
+          4. 鏡頭背向（約180°） |
+          5. 鏡頭右45° |
+          6. 鏡頭右90° |
+          7. 鏡頭右135°（更偏側視） |
+          8. 低機位（仰視） |
+          9. 高機位（俯視）
+      - "{backgrounds_ui.menu_title}\n{backgrounds_ui.prefix}\n{backgrounds_ui.fallback_note}"
 
 routes:
   # 角度 / 背景入口
@@ -78,17 +80,18 @@ routes:
 blocks:
   angle_menu:
     say:
-      - "{angles.menu_title}："
-      - ""0": "跳過",
-      "1": "鏡頭左45°",
-      "2": "鏡頭左90°",
-      "3": "鏡頭左135°（更偏側視）",
-      "4": "鏡頭背向（約180°）",
-      "5": "鏡頭右45°",
-      "6": "鏡頭右90°",
-      "7": "鏡頭右135°（更偏側視）",
-      "8": "低機位（仰視）",
-      "9": "高機位（俯視）"
+      - >-
+          {angles.menu_title}：
+          0. 跳過 |
+          1. 鏡頭左45° |
+          2. 鏡頭左90° |
+          3. 鏡頭左135°（更偏側視） |
+          4. 鏡頭背向（約180°） |
+          5. 鏡頭右45° |
+          6. 鏡頭右90° |
+          7. 鏡頭右135°（更偏側視） |
+          8. 低機位（仰視） |
+          9. 高機位（俯視）
       - "👉 輸入 0～9 選角度，或按 Q 拍照"
     return: true
 
