@@ -1,0 +1,15 @@
+routes:
+  - id: ROUTE_chat
+    match: "^/chat$"
+    goto: module_chat.CHAT_entry
+    meta: {secure: true, gpt_isolation: true}
+
+  - id: ROUTE_photo
+    match: "^/photo$"
+    goto: module_pro_facewrap_v2.ENTRY
+    meta: {secure: true, gpt_isolation: true}
+
+  - id: ROUTE_duo
+    match: "^/duo$"
+    goto: module_duo_facewrap_v2.ENTRY
+    meta: {secure: true, gpt_isolation: true}
